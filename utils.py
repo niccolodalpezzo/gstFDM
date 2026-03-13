@@ -1,0 +1,42 @@
+import os
+import json
+from database import init_db
+
+# Definisce le directory necessarie
+REQUIRED_DIRS = ['data', 'gcode_vault', 'exports', 'configs']
+SETTINGS_FILE = os.path.join('configs', 'settings.json')
+
+# Costi globali predefiniti (energia, manodopera)
+DEFAULT_SETTINGS = {
+    "costo_kwh": 0.25,
+    "costo_orario_post_prod": 15.0,
+    "ore_lavorative_mensili_farm": 160,  # Ore stimate di stampa totali nel mese per calcolo costi fissi
+    "theme_mode": "Scuro",               # Default Dark mode
+    "theme_accent": "#6C63FF",           # Default Accent color (Purple)
+    "theme_font": "Inter"                # Default Font
+}
+
+def setup_environment():
+    """Crea le cartelle e i file di configurazione necessari al primo avvio."""
+    for directory in REQUIRED_DIRS:
+        os.makedirs(directory, exist_ok=True)
+    
+    # Inizializza settings.json se non esiste
+    if not os.path.exists(SETTINGS_FILE):
+        with open(SETTINGS_FILE, 'w') as f:
+            json.dump(DEFAULT_SETTINGS, f, indent=4)
+            
+    # Inizializza il database
+    init_db()
+
+def load_settings():
+    """Carica i settings dal file JSON."""
+    if os.path.exists(SETTINGS_FILE):
+        with open(SETTINGS_FILE, 'r') as f:
+            return json.load(f)
+    return DEFAULT_SETTINGS
+
+def save_settings(settings):
+    """Salva i settings nel file JSON."""
+    with open(SETTINGS_FILE, 'w') as f:
+        json.dump(settings, f, indent=4)

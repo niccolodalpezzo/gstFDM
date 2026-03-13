@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tema default (light) — sovrascritta da useTheme.ts via JS */
+:root {
+  --accent: #1cc123;
+  --bg: #f8f9fa;
+  --text: #111111;
+  --card-bg: rgba(255, 255, 255, 0.9);
+  --card-border: rgba(0, 0, 0, 0.06);
+  --border: rgba(0, 0, 0, 0.1);
+  --input-bg: #ffffff;
+  --muted-bg: rgba(0, 0, 0, 0.04);
+  --muted-text: #666666;
+  --sidebar-bg: #ffffff;
+  --font: 'Inter', system-ui, sans-serif;
+}
+
+.dark {
+  --bg: #13131a;
+  --text: #e0e0e0;
+  --card-bg: rgba(25, 25, 32, 0.8);
+  --card-border: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.1);
+  --input-bg: rgba(255, 255, 255, 0.06);
+  --muted-bg: rgba(255, 255, 255, 0.06);
+  --muted-text: #999999;
+  --sidebar-bg: #1a1a24;
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--border);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  display: flex;
+  min-height: 100vh;
+}

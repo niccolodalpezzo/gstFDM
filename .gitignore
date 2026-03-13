@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.env
+.venv
+venv/
+
+# Database (non versionare dati reali — rimuovi questa riga se vuoi versionarla)
+# data/printfarm.sqlite
+
+# Exports generati
+exports/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# VSCode / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Claude internal
+.claude/

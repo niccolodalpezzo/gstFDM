@@ -1,0 +1,8 @@
+{
+    "costo_kwh": 0.17,
+    "costo_orario_post_prod": 15.0,
+    "ore_lavorative_mensili_farm": 500.0,
+    "theme_font": "Inter",
+    "theme_accent": "#1cc123",
+    "theme_mode": "Chiaro"
+}
