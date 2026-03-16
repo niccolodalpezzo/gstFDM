@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routers import settings, stampanti, progetti, magazzino, costi_fissi, log_stampe, gcode, dashboard
+from backend.routers import settings, stampanti, progetti, magazzino, costi_fissi, log_stampe, dashboard
 import utils
 
 app = FastAPI(title="PrintFarm API", version="1.0.0")
@@ -33,7 +33,6 @@ app.include_router(stampanti.router,    prefix="/api/stampanti",    tags=["stamp
 app.include_router(magazzino.router,    prefix="/api/magazzino",    tags=["magazzino"])
 app.include_router(log_stampe.router,   prefix="/api/log-stampe",   tags=["log_stampe"])
 app.include_router(costi_fissi.router,  prefix="/api/costi-fissi",  tags=["costi_fissi"])
-app.include_router(gcode.router,        prefix="/api/gcode",        tags=["gcode"])
 app.include_router(settings.router,     prefix="/api/settings",     tags=["settings"])
 
 

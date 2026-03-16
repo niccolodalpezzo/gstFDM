@@ -89,12 +89,6 @@ export interface Settings {
   theme_font: string
 }
 
-// ─── GCODE ────────────────────────────────────────────────────────────────────
-export interface GcodeParseResult {
-  time_min: number
-  grams: number
-}
-
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 export interface DashboardSummary {
   entrate: number

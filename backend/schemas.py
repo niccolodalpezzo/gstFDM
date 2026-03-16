@@ -104,13 +104,6 @@ class Settings(BaseModel):
     theme_font: str = "Inter"
 
 
-# ─── GCODE ────────────────────────────────────────────────────────────────────
-
-class GcodeParseResult(BaseModel):
-    time_min: float
-    grams: float
-
-
 # ─── DASHBOARD ────────────────────────────────────────────────────────────────
 
 class DashboardSummary(BaseModel):

@@ -1,4 +1,3 @@
-import { useState, useCallback } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { api } from "@/lib/api"
@@ -9,7 +8,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { Upload } from "lucide-react"
 import type { LogStampaCreate } from "@/types"
 
 interface FormData {
@@ -25,7 +23,6 @@ interface FormData {
 
 export default function PrintLog() {
   const toast = useToast()
-  const [gcodeFileName, setGcodeFileName] = useState<string | null>(null)
 
   const { data: progetti = [] } = useQuery({ queryKey: ["progetti"], queryFn: api.progetti.list })
   const { data: stampanti = [] } = useQuery({ queryKey: ["stampanti"], queryFn: api.stampanti.list })
@@ -47,16 +44,6 @@ export default function PrintLog() {
   const stampanteId = watch("stampante_id")
   const codiceBobina = watch("codice_bobina")
 
-  const gcodeMutation = useMutation({
-    mutationFn: api.gcode.parse,
-    onSuccess: (data) => {
-      setValue("tempo_minuti", Math.round(data.time_min))
-      setValue("grammi_usati", Math.round(data.grams * 10) / 10)
-      toast(`G-code analizzato: ${Math.round(data.time_min)} min, ${data.grams.toFixed(1)} g`, "success")
-    },
-    onError: () => toast("Impossibile analizzare il file G-code", "error"),
-  })
-
   const logMutation = useMutation({
     mutationFn: (data: LogStampaCreate) => api.logStampe.create(data),
     onSuccess: () => {
@@ -66,19 +53,10 @@ export default function PrintLog() {
         grammi_usati: 0, tempo_minuti: 0,
         costo_post_prod: 0, costo_extra: 0, costo_packaging: 0,
       })
-      setGcodeFileName(null)
       toast("Log stampa salvato", "success")
     },
     onError: (err) => toast(`Errore: ${(err as Error).message}`, "error"),
   })
-
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setGcodeFileName(file.name)
-      gcodeMutation.mutate(file)
-    }
-  }, [gcodeMutation])
 
   const onSubmit = (data: FormData) => {
     logMutation.mutate(data as LogStampaCreate)
@@ -89,33 +67,6 @@ export default function PrintLog() {
       <h2 className="text-2xl font-bold mb-6" style={{ color: "var(--text)" }}>
         Print Log & Scansione
       </h2>
-
-      {/* Gcode Upload */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Carica G-code (opzionale)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <label
-            className="flex flex-col items-center justify-center w-full h-24 rounded-lg border-2 border-dashed cursor-pointer transition-colors hover:bg-muted"
-            style={{ borderColor: "var(--border)" }}
-          >
-            <Upload className="h-6 w-6 mb-1 opacity-50" />
-            <span className="text-sm opacity-50">
-              {gcodeFileName ?? "Clicca per caricare un file .gcode"}
-            </span>
-            <input
-              type="file"
-              accept=".gcode"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </label>
-          {gcodeMutation.isPending && (
-            <p className="text-sm mt-2 opacity-50">Analisi in corso...</p>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Log Form */}
       <Card>

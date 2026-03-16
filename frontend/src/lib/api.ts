@@ -4,7 +4,7 @@ import type {
   BobinaFilamento, BobinaCreate,
   CostoFisso, CostoFissoCreate,
   LogStampa, LogStampaCreate,
-  Settings, GcodeParseResult,
+  Settings,
   DashboardSummary, ProgettoCardData,
 } from "@/types"
 
@@ -84,16 +84,6 @@ export const api = {
       request<LogStampa[]>(`/api/log-stampe${progetto_id ? `?progetto_id=${progetto_id}` : ""}`),
     create: (body: LogStampaCreate) =>
       request<LogStampa>("/api/log-stampe", { method: "POST", body: JSON.stringify(body) }),
-  },
-
-  gcode: {
-    parse: async (file: File): Promise<GcodeParseResult> => {
-      const fd = new FormData()
-      fd.append("file", file)
-      const res = await fetch(`${BASE}/api/gcode/parse`, { method: "POST", body: fd })
-      if (!res.ok) throw new Error(`${res.status}`)
-      return res.json() as Promise<GcodeParseResult>
-    },
   },
 
   settings: {

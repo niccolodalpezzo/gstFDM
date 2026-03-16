@@ -3,7 +3,7 @@ import json
 from database import init_db
 
 # Definisce le directory necessarie
-REQUIRED_DIRS = ['data', 'gcode_vault', 'exports', 'configs']
+REQUIRED_DIRS = ['data', 'exports', 'configs']
 SETTINGS_FILE = os.path.join('configs', 'settings.json')
 
 # Costi globali predefiniti (energia, manodopera)
