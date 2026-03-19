@@ -16,7 +16,7 @@ import { Pencil, Trash2, Plus } from "lucide-react"
 import { formatEur } from "@/lib/utils"
 import type { Progetto, ProgettoCreate } from "@/types"
 
-const STATI = ["Progettazione", "Prototipazione", "Produzione", "Terminato"]
+const STATI = ["Design", "Prototyping", "Production", "Completed"]
 
 function ProgettoForm({
   defaultValues,
@@ -34,21 +34,21 @@ function ProgettoForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label>Nome progetto *</Label>
+          <Label>Project name *</Label>
           <Input {...register("nome")} required />
         </div>
         <div className="space-y-1">
-          <Label>Cliente</Label>
+          <Label>Client</Label>
           <Input {...register("cliente")} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label>Budget vendita (€)</Label>
+          <Label>Sale budget (€)</Label>
           <Input type="number" step="0.01" min="0" {...register("budget", { valueAsNumber: true })} />
         </div>
         <div className="space-y-1">
-          <Label>Stato</Label>
+          <Label>Status</Label>
           <Select value={statoWatch} onValueChange={v => setValue("stato", v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -59,20 +59,20 @@ function ProgettoForm({
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div className="space-y-1">
-          <Label>Quantità</Label>
+          <Label>Quantity</Label>
           <Input type="number" min="1" {...register("quantita_da_produrre", { valueAsNumber: true })} />
         </div>
         <div className="space-y-1">
-          <Label>Ore progettazione</Label>
+          <Label>Design hours</Label>
           <Input type="number" step="0.5" min="0" {...register("ore_progettazione", { valueAsNumber: true })} />
         </div>
         <div className="space-y-1">
-          <Label>Costi extra (€)</Label>
+          <Label>Extra costs (€)</Label>
           <Input type="number" step="0.01" min="0" {...register("costo_extra_progetto", { valueAsNumber: true })} />
         </div>
       </div>
       <Button type="submit" disabled={isPending} className="w-full">
-        {isPending ? "Salvataggio..." : "Salva"}
+        {isPending ? "Saving..." : "Save"}
       </Button>
     </form>
   )
@@ -80,10 +80,10 @@ function ProgettoForm({
 
 function statoBadge(stato: string) {
   const map: Record<string, string> = {
-    Progettazione: "secondary",
-    Prototipazione: "warning",
-    Produzione: "default",
-    Terminato: "success",
+    Design: "secondary",
+    Prototyping: "warning",
+    Production: "default",
+    Completed: "success",
   }
   return <Badge variant={(map[stato] ?? "secondary") as "secondary" | "warning" | "default" | "success"}>{stato}</Badge>
 }
@@ -104,7 +104,7 @@ export default function Progetti() {
       queryClient.invalidateQueries({ queryKey: ["progetti"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard"] })
       setAddOpen(false)
-      toast("Progetto creato", "success")
+      toast("Project created", "success")
     },
     onError: () => toast("Errore", "error"),
   })
@@ -116,7 +116,7 @@ export default function Progetti() {
       queryClient.invalidateQueries({ queryKey: ["progetti"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard"] })
       setEditTarget(null)
-      toast("Progetto aggiornato", "success")
+      toast("Project updated", "success")
     },
     onError: () => toast("Errore", "error"),
   })
@@ -126,31 +126,31 @@ export default function Progetti() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["progetti"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard"] })
-      toast("Progetto eliminato", "success")
+      toast("Project deleted", "success")
     },
     onError: () => toast("Errore", "error"),
   })
 
-  if (isLoading) return <p className="opacity-50">Caricamento...</p>
+  if (isLoading) return <p className="opacity-50">Loading...</p>
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
-          Gestione Progetti
+          Project Management
         </h2>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
-              <Plus className="h-4 w-4 mr-1" /> Nuovo Progetto
+              <Plus className="h-4 w-4 mr-1" /> New Project
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Nuovo Progetto</DialogTitle>
+              <DialogTitle>New Project</DialogTitle>
             </DialogHeader>
             <ProgettoForm
-              defaultValues={{ stato: "Progettazione", quantita_da_produrre: 1, ore_progettazione: 0, budget: 0, costo_extra_progetto: 0 }}
+              defaultValues={{ stato: "Design", quantita_da_produrre: 1, ore_progettazione: 0, budget: 0, costo_extra_progetto: 0 }}
               onSubmit={data => createMutation.mutate(data)}
               isPending={createMutation.isPending}
             />
@@ -159,7 +159,7 @@ export default function Progetti() {
       </div>
 
       {progetti.length === 0 ? (
-        <p className="opacity-50">Nessun progetto. Creane uno per iniziare.</p>
+        <p className="opacity-50">No projects yet. Create one to get started.</p>
       ) : (
         <div className="grid gap-3">
           {progetti.map(p => (
@@ -183,7 +183,7 @@ export default function Progetti() {
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Modifica Progetto</DialogTitle>
+                        <DialogTitle>Edit Project</DialogTitle>
                       </DialogHeader>
                       {editTarget && (
                         <ProgettoForm
@@ -200,7 +200,7 @@ export default function Progetti() {
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     }
-                    description={`Eliminare il progetto "${p.nome}"? Saranno eliminati anche tutti i log di stampa associati.`}
+                    description={`Delete project "${p.nome}"? All associated print logs will also be deleted.`}
                     onConfirm={() => deleteMutation.mutate(p.id)}
                   />
                 </div>

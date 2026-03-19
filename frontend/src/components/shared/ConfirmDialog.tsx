@@ -13,8 +13,8 @@ interface ConfirmDialogProps {
 
 export function ConfirmDialog({
   trigger,
-  title = "Sei sicuro?",
-  description = "Questa azione non può essere annullata.",
+  title = "Are you sure?",
+  description = "This action cannot be undone.",
   onConfirm,
 }: ConfirmDialogProps) {
   return (
@@ -26,8 +26,8 @@ export function ConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Annulla</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>Elimina</AlertDialogAction>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>Delete</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

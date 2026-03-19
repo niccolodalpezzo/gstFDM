@@ -3,8 +3,9 @@ import json
 from database import init_db
 
 # Definisce le directory necessarie
-REQUIRED_DIRS = ['data', 'exports', 'configs']
-SETTINGS_FILE = os.path.join('configs', 'settings.json')
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+REQUIRED_DIRS = [os.path.join(_ROOT, d) for d in ['data', 'exports', 'configs']]
+SETTINGS_FILE = os.path.join(_ROOT, 'configs', 'settings.json')
 
 # Costi globali predefiniti (energia, manodopera)
 DEFAULT_SETTINGS = {

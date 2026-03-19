@@ -33,7 +33,8 @@ def create_log_stampa(body: LogStampaCreate):
     db.add_log_stampa(
         body.progetto_id, body.stampante_id, magazzino_id,
         body.grammi_usati, body.tempo_minuti,
-        body.costo_post_prod, body.costo_extra, body.costo_packaging
+        body.costo_post_prod, body.costo_extra, body.costo_packaging,
+        body.data
     )
 
     # Aggiorna grammi della bobina

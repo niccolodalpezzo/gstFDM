@@ -29,36 +29,36 @@ function BobinaForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label>Marca</Label>
-          <Input {...register("marca")} placeholder="es. Bambu Lab" />
+          <Label>Brand</Label>
+          <Input {...register("marca")} placeholder="e.g. Bambu Lab" />
         </div>
         <div className="space-y-1">
-          <Label>Materiale *</Label>
-          <Input {...register("materiale")} required placeholder="es. PETG" />
+          <Label>Material *</Label>
+          <Input {...register("materiale")} required placeholder="e.g. PETG" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label>Colore *</Label>
-          <Input {...register("colore")} required placeholder="es. Nero" />
+          <Label>Color *</Label>
+          <Input {...register("colore")} required placeholder="e.g. Black" />
         </div>
         <div className="space-y-1">
-          <Label>Costo (€/kg) *</Label>
+          <Label>Cost (€/kg) *</Label>
           <Input type="number" step="0.01" min="0" {...register("costo_kg", { valueAsNumber: true })} required />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label>Grammi per bobina</Label>
+          <Label>Grams per spool</Label>
           <Input type="number" step="1" min="1" {...register("grammi_residui", { valueAsNumber: true })} />
         </div>
         <div className="space-y-1">
-          <Label>Quantità stock</Label>
+          <Label>Stock quantity</Label>
           <Input type="number" min="1" {...register("quantita_stock", { valueAsNumber: true })} />
         </div>
       </div>
       <Button type="submit" disabled={isPending} className="w-full">
-        {isPending ? "Salvataggio..." : "Aggiungi"}
+        {isPending ? "Saving..." : "Add"}
       </Button>
     </form>
   )
@@ -96,7 +96,7 @@ function BobinaCard({
           {onAttiva && (
             <Button variant="ghost" size="sm" onClick={() => onAttiva(b.id)}>
               <Zap className="h-3.5 w-3.5 mr-1" />
-              Attiva
+              Activate
             </Button>
           )}
           <ConfirmDialog
@@ -105,7 +105,7 @@ function BobinaCard({
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
             }
-            description={`Eliminare bobina ${b.marca} ${b.materiale} (${b.colore})?`}
+            description={`Delete spool ${b.marca} ${b.materiale} (${b.colore})?`}
             onConfirm={() => onDelete(b.id)}
           />
         </div>
@@ -132,7 +132,7 @@ export default function Magazzino() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["magazzino"] })
       setAddOpen(false)
-      toast("Bobina aggiunta", "success")
+      toast("Spool added", "success")
     },
     onError: () => toast("Errore", "error"),
   })
@@ -141,7 +141,7 @@ export default function Magazzino() {
     mutationFn: api.magazzino.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["magazzino"] })
-      toast("Bobina eliminata", "success")
+      toast("Spool deleted", "success")
     },
     onError: () => toast("Errore", "error"),
   })
@@ -150,28 +150,28 @@ export default function Magazzino() {
     mutationFn: api.magazzino.attiva,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["magazzino"] })
-      toast(`Bobina attivata! Codice: ${data.codice}`, "success")
+      toast(`Spool activated! Code: ${data.codice}`, "success")
     },
     onError: () => toast("Errore attivazione", "error"),
   })
 
-  if (isLoading) return <p className="opacity-50">Caricamento...</p>
+  if (isLoading) return <p className="opacity-50">Loading...</p>
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
-          Magazzino Filamenti
+          Filament Warehouse
         </h2>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
-              <Plus className="h-4 w-4 mr-1" /> Nuova Bobina
+              <Plus className="h-4 w-4 mr-1" /> New Spool
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Aggiungi Bobina</DialogTitle>
+              <DialogTitle>Add Spool</DialogTitle>
             </DialogHeader>
             <BobinaForm
               onSubmit={data => createMutation.mutate(data)}
@@ -184,20 +184,20 @@ export default function Magazzino() {
       <Tabs defaultValue="nuove">
         <TabsList>
           <TabsTrigger value="nuove">
-            Nuove ({nuove.length})
+            New ({nuove.length})
           </TabsTrigger>
           <TabsTrigger value="usate">
-            Usate ({usate.length})
+            Active ({usate.length})
           </TabsTrigger>
           <TabsTrigger value="terminate">
-            Terminate ({terminate.length})
+            Finished ({terminate.length})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="nuove">
           <div className="space-y-2 mt-3">
             {nuove.length === 0 ? (
-              <p className="opacity-50 text-sm">Nessuna bobina nuova in magazzino.</p>
+              <p className="opacity-50 text-sm">No new spools in warehouse.</p>
             ) : (
               nuove.map(b => (
                 <BobinaCard
@@ -214,7 +214,7 @@ export default function Magazzino() {
         <TabsContent value="usate">
           <div className="space-y-2 mt-3">
             {usate.length === 0 ? (
-              <p className="opacity-50 text-sm">Nessuna bobina attiva.</p>
+              <p className="opacity-50 text-sm">No active spools.</p>
             ) : (
               usate.map(b => (
                 <BobinaCard
@@ -230,7 +230,7 @@ export default function Magazzino() {
         <TabsContent value="terminate">
           <div className="space-y-2 mt-3">
             {terminate.length === 0 ? (
-              <p className="opacity-50 text-sm">Nessuna bobina terminata.</p>
+              <p className="opacity-50 text-sm">No finished spools.</p>
             ) : (
               terminate.map(b => (
                 <BobinaCard

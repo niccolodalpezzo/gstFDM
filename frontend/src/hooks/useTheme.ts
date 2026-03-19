@@ -8,7 +8,7 @@ const FONT_URLS: Record<string, string> = {
   "JetBrains Mono": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap",
 }
 
-export function applyTheme(settings: Settings) {
+export function applyTheme(settings: Pick<Settings, "theme_mode" | "theme_accent" | "theme_font">) {
   const root = document.documentElement
   const isDark = settings.theme_mode === "Scuro"
 

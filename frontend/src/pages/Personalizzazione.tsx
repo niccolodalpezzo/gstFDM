@@ -31,11 +31,11 @@ export default function Personalizzazione() {
     theme_mode: "Scuro" | "Chiaro"
     theme_accent: string
     theme_font: string
-  }>({
-    theme_mode: DEFAULT_THEME.theme_mode,
-    theme_accent: DEFAULT_THEME.theme_accent,
-    theme_font: DEFAULT_THEME.theme_font,
-  })
+  }>(() => ({
+    theme_mode: settings?.theme_mode ?? DEFAULT_THEME.theme_mode,
+    theme_accent: settings?.theme_accent ?? DEFAULT_THEME.theme_accent,
+    theme_font: settings?.theme_font ?? DEFAULT_THEME.theme_font,
+  }))
 
   useEffect(() => {
     if (settings) {
@@ -49,17 +49,15 @@ export default function Personalizzazione() {
 
   // Live preview: applica subito le modifiche locali
   useEffect(() => {
-    if (settings) {
-      applyTheme({ ...settings, ...local })
-    }
-  }, [local, settings])
+    applyTheme(local)
+  }, [local])
 
   const mutation = useMutation({
     mutationFn: (updated: Settings) => api.settings.update(updated),
     onSuccess: (data) => {
       queryClient.setQueryData(["settings"], data)
       applyTheme(data)
-      toast("Tema applicato", "success")
+      toast("Theme applied", "success")
     },
     onError: () => toast("Errore", "error"),
   })
@@ -80,12 +78,12 @@ export default function Personalizzazione() {
   return (
     <div className="max-w-lg">
       <h2 className="text-2xl font-bold mb-6" style={{ color: "var(--text)" }}>
-        Personalizzazione
+        Appearance
       </h2>
 
       <Card>
         <CardHeader>
-          <CardTitle>Tema Interfaccia</CardTitle>
+          <CardTitle>Interface Theme</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           {/* Font */}
@@ -110,7 +108,7 @@ export default function Personalizzazione() {
 
           {/* Colore accent */}
           <div className="space-y-1.5">
-            <Label>Colore accento</Label>
+            <Label>Accent color</Label>
             <div className="flex items-center gap-3">
               <input
                 type="color"
@@ -127,7 +125,7 @@ export default function Personalizzazione() {
 
           {/* Dark/Light */}
           <div className="flex items-center justify-between">
-            <Label>Modalità scura</Label>
+            <Label>Dark mode</Label>
             <Switch
               checked={local.theme_mode === "Scuro"}
               onCheckedChange={checked =>
@@ -142,19 +140,19 @@ export default function Personalizzazione() {
             style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}
           >
             <p className="text-sm font-medium mb-1" style={{ color: "var(--accent)" }}>
-              Anteprima live
+              Live preview
             </p>
             <p className="text-sm" style={{ color: "var(--text)" }}>
-              Questo è come apparirà il testo nell'app.
+              This is how text will appear in the app.
             </p>
           </div>
 
           <div className="flex gap-2">
             <Button onClick={handleApplica} disabled={mutation.isPending} className="flex-1">
-              {mutation.isPending ? "Applicazione..." : "Applica"}
+              {mutation.isPending ? "Applying..." : "Apply"}
             </Button>
             <Button variant="outline" onClick={handleReset} disabled={mutation.isPending}>
-              Ripristina Default
+              Reset to Default
             </Button>
           </div>
         </CardContent>

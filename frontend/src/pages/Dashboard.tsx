@@ -1,160 +1,466 @@
+import { useState, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { api } from "@/lib/api"
-import { useToast } from "@/components/ui/toast"
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts"
+import { TrendingUp, TrendingDown, Activity, AlertTriangle, Package } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { MarginBadge } from "@/components/shared/MarginBadge"
+import { api } from "@/lib/api"
 import { formatEur } from "@/lib/utils"
-import { TrendingUp, TrendingDown, Minus, FileText } from "lucide-react"
+import type { ChartItem, ScortaItem } from "@/types"
 
-function KpiCard({
-  label,
-  value,
-  icon: Icon,
-  positive,
-}: {
-  label: string
-  value: number
-  icon: React.ElementType
-  positive?: boolean
-}) {
-  const color =
-    positive === undefined
-      ? "var(--accent)"
-      : positive
-      ? "var(--accent)"
-      : "#ef4444"
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+type FilterMode = "monthly" | "annual" | "custom"
+
+const MONTHS = [
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December",
+]
+const YEARS = [2024, 2025, 2026]
+
+const PALETTE_MATERIAL = ["#6366f1","#22d3ee","#f59e0b","#ec4899","#84cc16","#f97316","#06b6d4"]
+const PALETTE_MACHINE  = ["#10b981","#f97316","#8b5cf6","#06b6d4","#ef4444","#eab308"]
+
+const inputCls = "px-3 py-1.5 rounded-lg text-sm outline-none border transition-colors"
+
+// ─── Financial Overview KPI ───────────────────────────────────────────────────
+
+function FinancialOverview({ revenue, expenditure }: { revenue: number; expenditure: number }) {
+  const margin = revenue - expenditure
+  const marginPct = revenue > 0 ? (margin / revenue) * 100 : 0
+  const isPositive = margin >= 0
 
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-medium" style={{ color: "var(--muted-text)" }}>
-            {label}
-          </p>
-          <Icon className="h-4 w-4 opacity-40" />
+    <div
+      className="rounded-xl overflow-hidden grid grid-cols-3 shadow-sm"
+      style={{ border: "1px solid var(--card-border)" }}
+    >
+      {/* REVENUE */}
+      <div
+        className="flex flex-col items-center justify-center py-6 px-4 gap-1"
+        style={{ background: "rgba(34,197,94,0.07)" }}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <TrendingUp className="h-4 w-4" style={{ color: "#22c55e" }} />
+          <span className="text-xs font-bold tracking-widest uppercase" style={{ color: "#22c55e" }}>
+            Revenue
+          </span>
         </div>
-        <p className="text-3xl font-bold" style={{ color }}>
-          {formatEur(value)}
-        </p>
+        <span className="text-2xl font-bold tabular-nums" style={{ color: "#22c55e" }}>
+          {formatEur(revenue)}
+        </span>
+        <span className="text-xs" style={{ color: "var(--muted-text)" }}>Gross income</span>
+      </div>
+
+      {/* EXPENDITURE */}
+      <div
+        className="flex flex-col items-center justify-center py-6 px-4 gap-1"
+        style={{
+          background: "rgba(239,68,68,0.07)",
+          borderLeft: "1px solid var(--card-border)",
+          borderRight: "1px solid var(--card-border)",
+        }}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <TrendingDown className="h-4 w-4" style={{ color: "#ef4444" }} />
+          <span className="text-xs font-bold tracking-widest uppercase" style={{ color: "#ef4444" }}>
+            Expenditure
+          </span>
+        </div>
+        <span className="text-2xl font-bold tabular-nums" style={{ color: "#ef4444" }}>
+          {formatEur(expenditure)}
+        </span>
+        <span className="text-xs" style={{ color: "var(--muted-text)" }}>Operational costs</span>
+      </div>
+
+      {/* OPERATING MARGIN */}
+      <div
+        className="flex flex-col items-center justify-center py-6 px-4 gap-1"
+        style={{ background: isPositive ? "rgba(99,102,241,0.07)" : "rgba(239,68,68,0.05)" }}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <Activity className="h-4 w-4" style={{ color: isPositive ? "#6366f1" : "#ef4444" }} />
+          <span
+            className="text-xs font-bold tracking-widest uppercase"
+            style={{ color: isPositive ? "#6366f1" : "#ef4444" }}
+          >
+            Operating Margin
+          </span>
+        </div>
+        <span
+          className="text-2xl font-bold tabular-nums"
+          style={{ color: isPositive ? "#6366f1" : "#ef4444" }}
+        >
+          {formatEur(margin)}
+        </span>
+        <span className="text-xs" style={{ color: "var(--muted-text)" }}>
+          {marginPct.toFixed(1)}% margin ratio
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// ─── Pie Chart Card ───────────────────────────────────────────────────────────
+
+const CustomTooltip = ({ active, payload, unit }: { active?: boolean; payload?: {name: string; value: number}[]; unit: string }) => {
+  if (!active || !payload?.length) return null
+  const { name, value } = payload[0]
+  return (
+    <div
+      className="px-3 py-2 rounded-lg text-xs shadow-lg"
+      style={{
+        background: "var(--card-bg)",
+        border: "1px solid var(--card-border)",
+        color: "var(--text)",
+      }}
+    >
+      <p className="font-semibold mb-0.5">{name}</p>
+      <p style={{ color: "var(--accent)" }}>
+        {typeof value === "number" ? value.toLocaleString("it-IT") : value} {unit}
+      </p>
+    </div>
+  )
+}
+
+function AnalyticsPieChart({
+  title,
+  subtitle,
+  data,
+  palette,
+  unit,
+}: {
+  title: string
+  subtitle: string
+  data: ChartItem[]
+  palette: string[]
+  unit: string
+}) {
+  const total = data.reduce((s, d) => s + d.value, 0)
+
+  if (data.length === 0) {
+    return (
+      <Card className="flex-1 min-w-0">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">{title}</CardTitle>
+          <p className="text-xs" style={{ color: "var(--muted-text)" }}>{subtitle}</p>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm py-10 text-center" style={{ color: "var(--muted-text)" }}>
+            No data for selected period
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="flex-1 min-w-0">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">{title}</CardTitle>
+        <p className="text-xs" style={{ color: "var(--muted-text)" }}>{subtitle}</p>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center gap-4">
+          <div className="flex-shrink-0" style={{ width: 150, height: 150 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={42}
+                  outerRadius={68}
+                  paddingAngle={2}
+                  dataKey="value"
+                >
+                  {data.map((_, i) => (
+                    <Cell key={i} fill={palette[i % palette.length]} strokeWidth={0} />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip unit={unit} />} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+            {data.map((d, i) => (
+              <div key={d.name} className="flex items-center justify-between text-xs gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span
+                    className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ background: palette[i % palette.length] }}
+                  />
+                  <span className="truncate" style={{ color: "var(--text)" }}>{d.name}</span>
+                </div>
+                <span className="font-semibold tabular-nums flex-shrink-0 ml-2" style={{ color: "var(--muted-text)" }}>
+                  {d.value.toLocaleString("it-IT")}{unit}
+                  <span className="ml-1 opacity-55 font-normal">
+                    ({total > 0 ? ((d.value / total) * 100).toFixed(0) : 0}%)
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </CardContent>
     </Card>
   )
 }
 
-async function downloadReport(id: number, nome: string, toast: (msg: string, type?: "success" | "error" | "info") => void) {
-  try {
-    const blob = await api.progetti.report(id)
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `Report_${nome}.txt`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast("Report generato", "success")
-  } catch {
-    toast("Errore generazione report", "error")
-  }
-}
+// ─── Low Stock Alerts ─────────────────────────────────────────────────────────
 
-export default function Dashboard() {
-  const toast = useToast()
-
-  const { data: summary, isLoading: loadingSummary } = useQuery({
-    queryKey: ["dashboard", "summary"],
-    queryFn: api.dashboard.summary,
-  })
-
-  const { data: cards = [], isLoading: loadingCards } = useQuery({
-    queryKey: ["dashboard", "projects"],
-    queryFn: api.dashboard.projects,
-  })
+function LowStockAlerts({ scorte }: { scorte: ScortaItem[] }) {
+  const critical = scorte.filter(s => s.sotto_soglia)
+  const adequate  = scorte.filter(s => !s.sotto_soglia)
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-6" style={{ color: "var(--text)" }}>
-        Dashboard Generale
-      </h2>
-
-      {/* KPI */}
-      {loadingSummary ? (
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          {[1, 2, 3].map(i => (
-            <Card key={i}>
-              <CardContent className="pt-6 h-24 animate-pulse" style={{ background: "var(--muted-bg)" }} />
-            </Card>
-          ))}
-        </div>
-      ) : summary ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <KpiCard label="Entrate (Terminati)" value={summary.entrate} icon={TrendingUp} positive={true} />
-          <KpiCard label="Costi Totali" value={summary.uscite} icon={TrendingDown} positive={false} />
-          <KpiCard
-            label="Margine Netto"
-            value={summary.margine}
-            icon={Minus}
-            positive={summary.margine >= 0}
-          />
-        </div>
-      ) : null}
-
-      {/* Project Cards */}
-      <h3 className="text-lg font-semibold mb-4" style={{ color: "var(--text)" }}>
-        Tutti i Progetti
-      </h3>
-
-      {loadingCards ? (
-        <p className="opacity-50">Caricamento...</p>
-      ) : cards.length === 0 ? (
-        <p className="opacity-50">Nessun progetto. Creane uno nella sezione Progetti.</p>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {cards.map(({ progetto: p, calcoli }) => (
-            <Card key={p.id}>
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-base">{p.nome}</CardTitle>
-                    <p className="text-xs mt-0.5" style={{ color: "var(--muted-text)" }}>
-                      {p.cliente || "–"} · {p.stato}
-                    </p>
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-3 flex-shrink-0">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4" style={{ color: "#f97316" }} />
+          Low Stock Alerts
+        </CardTitle>
+        {critical.length > 0 && (
+          <span
+            className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full w-fit"
+            style={{ background: "rgba(249,115,22,0.12)", color: "#f97316" }}
+          >
+            {critical.length} critical
+          </span>
+        )}
+      </CardHeader>
+      <CardContent className="pt-0 flex-1 overflow-auto">
+        {scorte.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 gap-2">
+            <Package className="h-8 w-8 opacity-25" />
+            <p className="text-xs text-center" style={{ color: "var(--muted-text)" }}>
+              No active spools tracked
+            </p>
+          </div>
+        ) : (
+          <>
+            {critical.length > 0 && (
+              <div className="mb-3">
+                <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "#f97316" }}>
+                  Below Threshold
+                </p>
+                {critical.map(s => (
+                  <div
+                    key={s.id}
+                    className="flex items-center justify-between py-2 px-3 rounded-lg mb-1"
+                    style={{ background: "rgba(249,115,22,0.08)" }}
+                  >
+                    <div className="flex items-start gap-2 min-w-0">
+                      <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: "#f97316" }} />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium truncate" style={{ color: "var(--text)" }}>{s.nome}</p>
+                        <p className="text-xs" style={{ color: "var(--muted-text)" }}>
+                          threshold: {s.soglia}g
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold tabular-nums flex-shrink-0 ml-2" style={{ color: "#f97316" }}>
+                      {s.grammi_residui}g
+                    </span>
                   </div>
-                  <MarginBadge perc={calcoli.margine_perc} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-1 text-sm mb-3">
-                  <div>
-                    <p className="opacity-50 text-xs">Budget</p>
-                    <p className="font-medium">{formatEur(p.budget)}</p>
-                  </div>
-                  <div>
-                    <p className="opacity-50 text-xs">Costo Totale</p>
-                    <p className="font-medium">{formatEur(calcoli.costo_totale)}</p>
-                  </div>
-                  <div>
-                    <p className="opacity-50 text-xs">Margine</p>
-                    <p className="font-medium" style={{ color: calcoli.margine_assoluto >= 0 ? "var(--accent)" : "#ef4444" }}>
-                      {formatEur(calcoli.margine_assoluto)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="opacity-50 text-xs">Ore Stampa</p>
-                    <p className="font-medium">{calcoli.ore_totali.toFixed(1)}h</p>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => downloadReport(p.id, p.nome, toast)}
+                ))}
+              </div>
+            )}
+            {adequate.length > 0 && (
+              <div>
+                <p
+                  className="text-xs font-bold uppercase tracking-wider mb-2"
+                  style={{ color: "var(--muted-text)" }}
                 >
-                  <FileText className="h-3.5 w-3.5 mr-1" />
-                  Genera Report
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                  Adequate Stock ({adequate.length})
+                </p>
+                {adequate.map(s => (
+                  <div
+                    key={s.id}
+                    className="flex items-center justify-between py-2 px-3 rounded-lg mb-1"
+                    style={{ background: "var(--muted-bg)" }}
+                  >
+                    <p className="text-xs truncate" style={{ color: "var(--text)" }}>{s.nome}</p>
+                    <span className="text-xs font-semibold tabular-nums flex-shrink-0 ml-2" style={{ color: "var(--muted-text)" }}>
+                      {s.grammi_residui}g
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
+export default function Dashboard() {
+  const now = new Date()
+  const [mode, setMode] = useState<FilterMode>("monthly")
+  const [month, setMonth]   = useState(now.getMonth() + 1)
+  const [year, setYear]     = useState(now.getFullYear())
+  const [dateFrom, setDateFrom] = useState(`${now.getFullYear()}-01-01`)
+  const [dateTo, setDateTo]     = useState(now.toISOString().slice(0, 10))
+
+  const inputStyle = {
+    background: "var(--input-bg)",
+    borderColor: "var(--border)",
+    color: "var(--text)",
+  }
+
+  // Map UI mode → API mode param
+  const apiMode = mode === "monthly" ? "mese" : mode === "annual" ? "anno" : "periodo"
+
+  const queryParams = useMemo(() => {
+    const p: Record<string, string | number> = { mode: apiMode }
+    if (mode === "monthly") { p.mese = month; p.anno = year }
+    if (mode === "annual")  { p.anno = year }
+    if (mode === "custom")  { p.dal = dateFrom; p.al = dateTo }
+    return p
+  }, [mode, month, year, dateFrom, dateTo, apiMode])
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard", "analytics", queryParams],
+    queryFn: () => api.dashboard.analytics(queryParams),
+  })
+
+  const filterLabels: Record<FilterMode, string> = {
+    monthly: "Monthly",
+    annual: "Annual",
+    custom: "Custom Range",
+  }
+
+  return (
+    <div className="flex flex-col h-full gap-5">
+
+      {/* ── Control Panel ───────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
+            Operations Dashboard
+          </h2>
+          <p className="text-xs mt-0.5" style={{ color: "var(--muted-text)" }}>
+            Additive Manufacturing — Financial & Resource Analytics
+          </p>
+        </div>
+
+        {/* Period Selector */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+            {(["monthly", "annual", "custom"] as FilterMode[]).map(m => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className="px-4 py-1.5 text-sm transition-colors"
+                style={{
+                  background: mode === m ? "var(--accent)" : "var(--card-bg)",
+                  color: mode === m ? "#fff" : "var(--text)",
+                  fontWeight: mode === m ? 600 : 400,
+                }}
+              >
+                {filterLabels[m]}
+              </button>
+            ))}
+          </div>
+
+          {mode === "monthly" && (
+            <>
+              <select
+                value={month}
+                onChange={e => setMonth(Number(e.target.value))}
+                className={inputCls}
+                style={inputStyle}
+              >
+                {MONTHS.map((n, i) => <option key={i} value={i + 1}>{n}</option>)}
+              </select>
+              <select
+                value={year}
+                onChange={e => setYear(Number(e.target.value))}
+                className={inputCls}
+                style={inputStyle}
+              >
+                {YEARS.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </>
+          )}
+
+          {mode === "annual" && (
+            <select
+              value={year}
+              onChange={e => setYear(Number(e.target.value))}
+              className={inputCls}
+              style={inputStyle}
+            >
+              {YEARS.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+          )}
+
+          {mode === "custom" && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium" style={{ color: "var(--muted-text)" }}>Start</span>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={e => setDateFrom(e.target.value)}
+                className={inputCls}
+                style={inputStyle}
+              />
+              <span className="text-xs font-medium" style={{ color: "var(--muted-text)" }}>End</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={e => setDateTo(e.target.value)}
+                className={inputCls}
+                style={inputStyle}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Body ────────────────────────────────────────────────── */}
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center opacity-40 text-sm">
+          Loading analytics...
+        </div>
+      ) : (
+        <div className="flex gap-5 flex-1 min-h-0">
+
+          {/* Main column */}
+          <div className="flex flex-col flex-1 min-w-0 gap-4">
+
+            {/* Financial Overview */}
+            <FinancialOverview
+              revenue={data?.entrate ?? 0}
+              expenditure={data?.uscite ?? 0}
+            />
+
+            {/* Analytics Charts */}
+            <div className="flex gap-4" style={{ minHeight: 230 }}>
+              <AnalyticsPieChart
+                title="Material Consumption"
+                subtitle="Polymer usage by filament type"
+                data={data?.materiali ?? []}
+                palette={PALETTE_MATERIAL}
+                unit="g"
+              />
+              <AnalyticsPieChart
+                title="Machine Duty Cycle"
+                subtitle="Active print hours per machine"
+                data={data?.stampanti ?? []}
+                palette={PALETTE_MACHINE}
+                unit="h"
+              />
+            </div>
+          </div>
+
+          {/* Right panel: Supply Chain */}
+          <div className="w-64 flex-shrink-0">
+            <LowStockAlerts scorte={data?.scorte ?? []} />
+          </div>
         </div>
       )}
     </div>

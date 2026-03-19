@@ -31,7 +31,7 @@ export default function SpeseCorrenti() {
       queryClient.invalidateQueries({ queryKey: ["costi-fissi"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard"] })
       reset({ attivo: true })
-      toast("Spesa aggiunta", "success")
+      toast("Expense added", "success")
     },
     onError: () => toast("Errore", "error"),
   })
@@ -50,7 +50,7 @@ export default function SpeseCorrenti() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["costi-fissi"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard"] })
-      toast("Spesa eliminata", "success")
+      toast("Expense deleted", "success")
     },
     onError: () => toast("Errore", "error"),
   })
@@ -59,18 +59,18 @@ export default function SpeseCorrenti() {
     .filter(c => c.attivo)
     .reduce((sum, c) => sum + c.importo_mensile, 0)
 
-  if (isLoading) return <p className="opacity-50">Caricamento...</p>
+  if (isLoading) return <p className="opacity-50">Loading...</p>
 
   return (
     <div className="max-w-2xl">
       <h2 className="text-2xl font-bold mb-6" style={{ color: "var(--text)" }}>
-        Spese Correnti
+        Fixed Costs
       </h2>
 
       {/* Form aggiunta */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Aggiungi Spesa</CardTitle>
+          <CardTitle>Add Expense</CardTitle>
         </CardHeader>
         <CardContent>
           <form
@@ -78,11 +78,11 @@ export default function SpeseCorrenti() {
             className="flex gap-3 items-end"
           >
             <div className="flex-1 space-y-1">
-              <Label>Descrizione</Label>
-              <Input {...register("nome")} required placeholder="es. Affitto" />
+              <Label>Description</Label>
+              <Input {...register("nome")} required placeholder="e.g. Rent" />
             </div>
             <div className="w-36 space-y-1">
-              <Label>Importo mensile (€)</Label>
+              <Label>Monthly amount (€)</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -92,7 +92,7 @@ export default function SpeseCorrenti() {
               />
             </div>
             <Button type="submit" disabled={createMutation.isPending}>
-              Aggiungi
+              Add
             </Button>
           </form>
         </CardContent>
@@ -100,7 +100,7 @@ export default function SpeseCorrenti() {
 
       {/* Lista spese */}
       {costi.length === 0 ? (
-        <p className="opacity-50">Nessuna spesa registrata.</p>
+        <p className="opacity-50">No expenses registered yet.</p>
       ) : (
         <div className="space-y-2">
           {costi.map(c => (
@@ -116,7 +116,7 @@ export default function SpeseCorrenti() {
                   <div>
                     <p className="font-medium text-sm">{c.nome}</p>
                     <p className="text-xs" style={{ color: "var(--muted-text)" }}>
-                      {formatEur(c.importo_mensile)} / mese
+                      {formatEur(c.importo_mensile)} / month
                     </p>
                   </div>
                 </div>
@@ -126,7 +126,7 @@ export default function SpeseCorrenti() {
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   }
-                  description={`Eliminare la spesa "${c.nome}"?`}
+                  description={`Delete expense "${c.nome}"?`}
                   onConfirm={() => deleteMutation.mutate(c.id)}
                 />
               </CardContent>
@@ -135,7 +135,7 @@ export default function SpeseCorrenti() {
 
           <div className="pt-3 border-t" style={{ borderColor: "var(--border)" }}>
             <p className="text-sm font-medium" style={{ color: "var(--muted-text)" }}>
-              Totale costi fissi attivi mensili
+              Total active monthly fixed costs
             </p>
             <p className="text-2xl font-bold mt-1" style={{ color: "var(--accent)" }}>
               {formatEur(totaleAttivo)}

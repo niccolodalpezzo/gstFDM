@@ -12,15 +12,20 @@ def list_costi_fissi():
     records = df.to_dict("records")
     for r in records:
         r["attivo"] = bool(r["attivo"])
+        r.setdefault("data_inizio", None)
+        r.setdefault("frequenza", "Monthly")
     return records
 
 
 @router.post("", response_model=CostoFissoOut, status_code=201)
 def create_costo_fisso(body: CostoFissoCreate):
-    db.add_costo_fisso(body.nome, body.importo_mensile, body.attivo)
+    db.add_costo_fisso(body.nome, body.importo_mensile, body.attivo,
+                       body.data_inizio, body.frequenza)
     df = db.get_costi_fissi()
     row = df.iloc[-1].to_dict()
     row["attivo"] = bool(row["attivo"])
+    row.setdefault("data_inizio", None)
+    row.setdefault("frequenza", "Monthly")
     return row
 
 
@@ -36,6 +41,8 @@ def toggle_costo(costo_id: int, body: dict):
         raise HTTPException(status_code=404, detail="Costo fisso non trovato")
     row = rows.iloc[0].to_dict()
     row["attivo"] = bool(row["attivo"])
+    row.setdefault("data_inizio", None)
+    row.setdefault("frequenza", "Monthly")
     return row
 
 

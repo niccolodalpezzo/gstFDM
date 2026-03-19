@@ -23,7 +23,7 @@ def list_progetti():
 def create_progetto(body: ProgettoCreate):
     db.add_progetto(
         body.nome, body.cliente, body.budget, body.stato,
-        body.quantita_da_produrre, body.ore_progettazione, body.costo_extra_progetto
+        body.quantita_da_produrre, body.ore_progettazione, body.costo_extra_progetto, body.cliente_id
     )
     df = db.get_progetti()
     return df.iloc[-1].to_dict()
@@ -36,7 +36,7 @@ def update_progetto(progetto_id: int, body: ProgettoCreate):
         raise HTTPException(status_code=404, detail="Progetto non trovato")
     db.update_progetto(
         progetto_id, body.nome, body.cliente, body.budget, body.stato,
-        body.quantita_da_produrre, body.ore_progettazione, body.costo_extra_progetto
+        body.quantita_da_produrre, body.ore_progettazione, body.costo_extra_progetto, body.cliente_id
     )
     df = db.get_progetti()
     return df[df["id"] == progetto_id].iloc[0].to_dict()

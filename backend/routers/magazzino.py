@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
-from backend.schemas import MagazzinoCreate, MagazzinoOut
+from backend.schemas import MagazzinoCreate, MagazzinoOut, MagazzinoUpdate, GrossWeightUpdate
 import database as db
 
 router = APIRouter()
@@ -19,14 +19,40 @@ def list_magazzino():
 
 @router.post("", response_model=MagazzinoOut, status_code=201)
 def create_magazzino(body: MagazzinoCreate):
-    db.add_magazzino(
+    new_id = db.add_magazzino(
         body.marca, body.materiale, body.colore,
-        body.costo_kg, body.grammi_residui, body.stato, body.quantita_stock
+        body.costo_kg, body.grammi_residui, body.stato, body.quantita_stock, body.fornitore_id
     )
     df = db.get_magazzino()
-    row = df.iloc[-1].to_dict()
+    row = df[df["id"] == new_id].iloc[0].to_dict()
     if row.get("codice_univoco") != row.get("codice_univoco"):
         row["codice_univoco"] = None
+    if row.get("gross_weight") != row.get("gross_weight"):
+        row["gross_weight"] = None
+    return row
+
+
+@router.put("/{magazzino_id}", response_model=MagazzinoOut)
+def update_magazzino(magazzino_id: int, body: MagazzinoUpdate):
+    db.update_magazzino_details(
+        magazzino_id, body.marca, body.materiale, body.colore,
+        body.costo_kg, body.grammi_residui, body.quantita_stock, body.fornitore_id
+    )
+    df = db.get_magazzino()
+    row = df[df["id"] == magazzino_id].iloc[0].to_dict()
+    if row.get("codice_univoco") != row.get("codice_univoco"):
+        row["codice_univoco"] = None
+    return row
+
+
+@router.patch("/{magazzino_id}/gross-weight", response_model=MagazzinoOut)
+def update_gross_weight(magazzino_id: int, body: GrossWeightUpdate):
+    db.update_gross_weight(magazzino_id, body.gross_weight, body.grammi_residui)
+    df = db.get_magazzino()
+    row = df[df["id"] == magazzino_id].iloc[0].to_dict()
+    for k in ("codice_univoco", "gross_weight"):
+        if row.get(k) != row.get(k):
+            row[k] = None
     return row
 
 
