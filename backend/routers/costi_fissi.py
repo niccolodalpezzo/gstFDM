@@ -1,32 +1,24 @@
-from fastapi import APIRouter, HTTPException
 from typing import List
+
+from fastapi import APIRouter, HTTPException
+
+from backend.repositories import finance
 from backend.schemas import CostoFissoCreate, CostoFissoOut
-import database as db
 
 router = APIRouter()
 
 
 @router.get("", response_model=List[CostoFissoOut])
 def list_costi_fissi():
-    df = db.get_costi_fissi()
-    records = df.to_dict("records")
-    for r in records:
-        r["attivo"] = bool(r["attivo"])
-        r.setdefault("data_inizio", None)
-        r.setdefault("frequenza", "Monthly")
-    return records
+    return finance.list_fixed_costs()
 
 
 @router.post("", response_model=CostoFissoOut, status_code=201)
 def create_costo_fisso(body: CostoFissoCreate):
-    db.add_costo_fisso(body.nome, body.importo_mensile, body.attivo,
-                       body.data_inizio, body.frequenza)
-    df = db.get_costi_fissi()
-    row = df.iloc[-1].to_dict()
-    row["attivo"] = bool(row["attivo"])
-    row.setdefault("data_inizio", None)
-    row.setdefault("frequenza", "Monthly")
-    return row
+    fixed_cost = finance.create_fixed_cost(body)
+    if fixed_cost is None:
+        raise HTTPException(status_code=500, detail="Creazione costo fisso fallita")
+    return fixed_cost
 
 
 @router.patch("/{costo_id}/toggle", response_model=CostoFissoOut)
@@ -34,18 +26,14 @@ def toggle_costo(costo_id: int, body: dict):
     attivo = body.get("attivo")
     if attivo is None:
         raise HTTPException(status_code=422, detail="Campo 'attivo' obbligatorio")
-    db.toggle_costo_fisso(costo_id, attivo)
-    df = db.get_costi_fissi()
-    rows = df[df["id"] == costo_id]
-    if rows.empty:
+    if finance.get_fixed_cost(costo_id) is None:
         raise HTTPException(status_code=404, detail="Costo fisso non trovato")
-    row = rows.iloc[0].to_dict()
-    row["attivo"] = bool(row["attivo"])
-    row.setdefault("data_inizio", None)
-    row.setdefault("frequenza", "Monthly")
-    return row
+    fixed_cost = finance.toggle_fixed_cost(costo_id, attivo)
+    if fixed_cost is None:
+        raise HTTPException(status_code=500, detail="Aggiornamento costo fisso fallito")
+    return fixed_cost
 
 
 @router.delete("/{costo_id}", status_code=204)
 def delete_costo(costo_id: int):
-    db.delete_costo_fisso(costo_id)
+    finance.delete_fixed_cost(costo_id)

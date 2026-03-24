@@ -1,13 +1,7 @@
-import sys
-import os
-
-# Aggiunge il root del progetto al path per importare database, calculations, ecc.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routers import settings, stampanti, progetti, magazzino, costi_fissi, log_stampe, dashboard, spese_una_tantum, component_replacements, generic_assets, tare_overrides, clienti, fornitori, material_density_ratios
+from backend.routers import settings, stampanti, progetti, magazzino, costi_fissi, log_stampe, dashboard, spese_una_tantum, component_replacements, generic_assets, tare_overrides, clienti, fornitori, material_density_ratios, pianificazione, manutenzioni
 import utils
 
 app = FastAPI(title="PrintFarm API", version="1.0.0")
@@ -19,6 +13,9 @@ app.add_middleware(
         "http://localhost:5173", "http://127.0.0.1:5173",
         "http://localhost:5174", "http://127.0.0.1:5174",
         "http://localhost:5175", "http://127.0.0.1:5175",
+        "http://localhost:5176", "http://127.0.0.1:5176",
+        "http://localhost:5177", "http://127.0.0.1:5177",
+        "http://localhost:5178", "http://127.0.0.1:5178",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -46,6 +43,8 @@ app.include_router(settings.router,               prefix="/api/settings",       
 app.include_router(clienti.router,                prefix="/api/clienti",                tags=["clienti"])
 app.include_router(fornitori.router,              prefix="/api/fornitori",              tags=["fornitori"])
 app.include_router(material_density_ratios.router, prefix="/api/material-density-ratios", tags=["material_density_ratios"])
+app.include_router(pianificazione.router,          prefix="/api/pianificazione",          tags=["pianificazione"])
+app.include_router(manutenzioni.router,            prefix="/api/manutenzioni",            tags=["manutenzioni"])
 
 
 @app.get("/")
@@ -55,4 +54,4 @@ def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)

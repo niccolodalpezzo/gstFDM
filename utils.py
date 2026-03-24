@@ -12,6 +12,7 @@ DEFAULT_SETTINGS = {
     "costo_kwh": 0.25,
     "costo_orario_post_prod": 15.0,
     "ore_lavorative_mensili_farm": 160,  # Ore stimate di stampa totali nel mese per calcolo costi fissi
+    "maintenance_interval_hours": 250.0,
     "theme_mode": "Scuro",               # Default Dark mode
     "theme_accent": "#6C63FF",           # Default Accent color (Purple)
     "theme_font": "Inter"                # Default Font

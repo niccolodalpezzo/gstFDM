@@ -2,36 +2,130 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Tema default (light) — sovrascritta da useTheme.ts via JS */
+/* ─── Design Tokens ─────────────────────────────────────────────────────────── */
 :root {
+  /* Brand */
   --accent: #1cc123;
-  --bg: #f8f9fa;
-  --text: #111111;
-  --card-bg: rgba(255, 255, 255, 0.9);
-  --card-border: rgba(0, 0, 0, 0.06);
-  --border: rgba(0, 0, 0, 0.1);
-  --input-bg: #ffffff;
-  --muted-bg: rgba(0, 0, 0, 0.04);
-  --muted-text: #666666;
+  --accent-hover: color-mix(in srgb, #1cc123 85%, black);
+  --accent-subtle: color-mix(in srgb, #1cc123 10%, transparent);
+  --accent-foreground: #ffffff;
+
+  /* Surfaces */
+  --bg: #f4f5f7;
+  --surface-1: #ffffff;
+  --surface-2: #f8f9fa;
+  --surface-3: #f1f3f5;
   --sidebar-bg: #ffffff;
+
+  /* Text */
+  --text: #0f1117;
+  --text-secondary: #374151;
+  --muted-text: #6b7280;
+  --muted-text-light: #9ca3af;
+
+  /* Borders */
+  --border: rgba(0, 0, 0, 0.07);
+  --border-strong: rgba(0, 0, 0, 0.14);
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.06);
+
+  /* Inputs */
+  --input-bg: #ffffff;
+  --muted-bg: rgba(0, 0, 0, 0.03);
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.08), 0 10px 10px -5px rgba(0,0,0,0.03);
+
+  /* Semantic */
+  --success: #16a34a;
+  --success-bg: #f0fdf4;
+  --warning: #d97706;
+  --warning-bg: #fffbeb;
+  --error: #dc2626;
+  --error-bg: #fef2f2;
+  --info: #2563eb;
+  --info-bg: #eff6ff;
+
+  /* Typography */
   --font: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Radius */
+  --radius: 0.75rem;
+  --radius-sm: 0.5rem;
+  --radius-xs: 0.375rem;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: 120ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 350ms ease;
+
+  /* Sidebar */
+  --sidebar-width: 240px;
 }
 
 .dark {
-  --bg: #13131a;
-  --text: #e0e0e0;
-  --card-bg: rgba(25, 25, 32, 0.8);
+  /* Brand */
+  --accent-hover: color-mix(in srgb, var(--accent) 85%, white);
+  --accent-subtle: color-mix(in srgb, var(--accent) 12%, transparent);
+
+  /* Surfaces */
+  --bg: #0d0e14;
+  --surface-1: #13141d;
+  --surface-2: #1a1b26;
+  --surface-3: #21222e;
+  --sidebar-bg: #111219;
+
+  /* Text */
+  --text: #e8eaf0;
+  --text-secondary: #c4c8d8;
+  --muted-text: #8b92a8;
+  --muted-text-light: #5c6380;
+
+  /* Borders */
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.13);
+  --card-bg: rgba(26, 27, 38, 0.95);
   --card-border: rgba(255, 255, 255, 0.06);
-  --border: rgba(255, 255, 255, 0.1);
-  --input-bg: rgba(255, 255, 255, 0.06);
-  --muted-bg: rgba(255, 255, 255, 0.06);
-  --muted-text: #999999;
-  --sidebar-bg: #1a1a24;
+
+  /* Inputs */
+  --input-bg: rgba(255, 255, 255, 0.05);
+  --muted-bg: rgba(255, 255, 255, 0.04);
+
+  /* Shadows – deeper in dark mode */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.25);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.4), 0 2px 4px -1px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.45), 0 4px 6px -2px rgba(0,0,0,0.3);
+  --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.5), 0 10px 10px -5px rgba(0,0,0,0.3);
+
+  /* Semantic */
+  --success: #4ade80;
+  --success-bg: rgba(74, 222, 128, 0.08);
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.08);
+  --error: #f87171;
+  --error-bg: rgba(248, 113, 113, 0.08);
+  --info: #60a5fa;
+  --info-bg: rgba(96, 165, 250, 0.08);
 }
 
-* {
+/* ─── Base ───────────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
   box-sizing: border-box;
   border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -39,10 +133,93 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
-  -webkit-font-smoothing: antialiased;
 }
 
 #root {
   display: flex;
   min-height: 100vh;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-text-light);
+}
+
+/* ─── Focus ring ─────────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* ─── Selection ──────────────────────────────────────────────────────────────── */
+::selection {
+  background: var(--accent-subtle);
+  color: var(--text);
+}
+
+/* ─── Utility classes ────────────────────────────────────────────────────────── */
+.glass {
+  background: color-mix(in srgb, var(--surface-1) 80%, transparent);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid var(--card-border);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+/* ─── Recharts overrides ─────────────────────────────────────────────────────── */
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: var(--surface-1) !important;
+  border-color: var(--card-border) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+.recharts-cartesian-axis-tick-value {
+  fill: var(--muted-text) !important;
+  font-size: 11px;
+}
+
+/* ─── Animations ─────────────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--muted-bg) 25%,
+    color-mix(in srgb, var(--muted-bg) 50%, var(--surface-1)) 50%,
+    var(--muted-bg) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-xs);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-in {
+  animation: fade-in 0.25s ease both;
+}
+
+/* ─── Radix overrides ────────────────────────────────────────────────────────── */
+[data-radix-popper-content-wrapper] {
+  z-index: 50 !important;
 }

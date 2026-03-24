@@ -11,14 +11,13 @@ function Badge({ className, variant = "default", ...props }: BadgeProps) {
       className={cn(
         "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors",
         {
-          default: "text-white",
-          secondary: "border border-border",
-          destructive: "bg-destructive text-destructive-foreground",
-          outline: "border border-border",
-          success: "bg-green-500/20 text-green-600 dark:text-green-400",
-          warning: "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400",
+          default:     "bg-[var(--accent)] text-white",
+          secondary:   "border border-[var(--border-strong)] text-[var(--muted-text)]",
+          destructive: "bg-[var(--error-bg)] text-[var(--error)] border border-[color-mix(in_srgb,var(--error)_20%,transparent)]",
+          outline:     "border border-[var(--border-strong)] text-[var(--text)]",
+          success:     "bg-[var(--success-bg)] text-[var(--success)] border border-[color-mix(in_srgb,var(--success)_20%,transparent)]",
+          warning:     "bg-[var(--warning-bg)] text-[var(--warning)] border border-[color-mix(in_srgb,var(--warning)_20%,transparent)]",
         }[variant],
-        variant === "default" && "bg-primary",
         className
       )}
       {...props}

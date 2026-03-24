@@ -1,21 +1,16 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
+
 from backend.schemas import Settings
-import utils
+from backend.services import settings_service
 
 router = APIRouter()
 
 
 @router.get("", response_model=Settings)
 def get_settings():
-    s = utils.load_settings()
-    # Assicura che i campi tema esistano (retrocompatibilità)
-    s.setdefault("theme_mode", "Scuro")
-    s.setdefault("theme_accent", "#6C63FF")
-    s.setdefault("theme_font", "Inter")
-    return s
+    return settings_service.get_settings()
 
 
 @router.put("", response_model=Settings)
 def update_settings(body: Settings):
-    utils.save_settings(body.model_dump())
-    return body
+    return settings_service.update_settings(body.model_dump())

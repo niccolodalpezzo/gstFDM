@@ -1,5 +1,5 @@
-import pandas as pd
 from utils import load_settings
+from project_status import is_completed_project_status
 
 def calcola_margine_completo(progetto, logs, stampanti_list, magazzino_list, costi_fissi_list):
     """
@@ -50,7 +50,15 @@ def calcola_margine_completo(progetto, logs, stampanti_list, magazzino_list, cos
     # Quota costi fissi
     tot_fissi = sum(float(cf['importo_mensile']) for cf in costi_fissi_list if cf['attivo'])
     quota_h = tot_fissi / ore_mensili_farm if ore_mensili_farm > 0 else 0
-    quota_fissi = quota_h * ore_progetto_tot
+
+    # Quota allocations attive (manodopera ordinaria, componenti, straordinarie)
+    try:
+        import database as _db
+        allocation_quota_h = _db.get_active_extra_quota_per_hour()
+    except Exception:
+        allocation_quota_h = 0.0
+
+    quota_fissi = (quota_h + allocation_quota_h) * ore_progetto_tot
 
     costo_totale = costo_3d_tot + quota_fissi + costi_accessori_tot + costo_prog + costo_extra_prog
     margine_assoluto = budget - costo_totale
@@ -68,6 +76,26 @@ def calcola_margine_completo(progetto, logs, stampanti_list, magazzino_list, cos
     }
 
 
+def calcola_quota_ricambi_straordinaria(ore_stampa: float, manutenzioni_attive: list) -> float:
+    """
+    Calcola il contributo delle manutenzioni straordinarie con spalmatura attiva
+    per un dato numero di ore di stampa.
+
+    ore_stampa: ore di produzione del progetto/log da valorizzare
+    manutenzioni_attive: lista di record da maintenance_service.get_active_spalmatura()
+                         (filtrati opzionalmente per printer_id)
+
+    Restituisce la quota costo ricambi da aggiungere al costo di produzione.
+
+    Limite residuo: ore_residue_da_spalmare non viene decrementato automaticamente;
+    il dato è preparato ma l'aggiornamento delle ore residue richiede implementazione futura.
+    """
+    if not manutenzioni_attive or ore_stampa <= 0:
+        return 0.0
+    totale = sum(float(m.get("quota_oraria_ricambi") or 0.0) for m in manutenzioni_attive)
+    return round(totale * ore_stampa, 6)
+
+
 def calcola_riepilogo_finanziario(progetti, tutti_i_logs, stampanti_list, magazzino_list, costi_fissi_list):
     """
     Calcola i KPI aggregati per la Dashboard:
@@ -75,7 +103,11 @@ def calcola_riepilogo_finanziario(progetti, tutti_i_logs, stampanti_list, magazz
     - Uscite: somma costi reali di tutti i log
     - Margine: Entrate - Uscite
     """
-    entrate = sum(float(p.get('budget', 0)) for p in progetti if p.get('stato') == 'Terminato')
+    entrate = sum(
+        float(p.get('budget', 0))
+        for p in progetti
+        if is_completed_project_status(p.get('stato'))
+    )
 
     uscite = 0.0
     for p in progetti:

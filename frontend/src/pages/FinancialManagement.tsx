@@ -388,16 +388,16 @@ function CostBar({
 function ProjectCostRow({ item }: { item: ProjectCostItem }) {
   const [expanded, setExpanded] = useState(false)
   const stateColors: Record<string, string> = {
-    Design: "rgba(99,102,241,0.15)",
-    Prototyping: "rgba(245,158,11,0.15)",
-    Production: "rgba(34,197,94,0.15)",
-    Completed: "rgba(16,185,129,0.15)",
+    Progettazione: "rgba(99,102,241,0.15)",
+    Prototipazione: "rgba(245,158,11,0.15)",
+    Produzione: "rgba(34,197,94,0.15)",
+    Terminato: "rgba(16,185,129,0.15)",
   }
   const stateTextColors: Record<string, string> = {
-    Design: "#6366f1",
-    Prototyping: "#f59e0b",
-    Production: "#22c55e",
-    Completed: "#10b981",
+    Progettazione: "#6366f1",
+    Prototipazione: "#f59e0b",
+    Produzione: "#22c55e",
+    Terminato: "#10b981",
   }
 
   return (
@@ -463,7 +463,7 @@ function ProjectCostRow({ item }: { item: ProjectCostItem }) {
             <CostBar label="Energy consumption" value={item.costo_energia} total={item.costo_totale} color="#22d3ee" />
             <CostBar label="Machine depreciation" value={item.costo_ammortamento} total={item.costo_totale} color="#f59e0b" />
             <CostBar label="Post-proc. / Accessories" value={item.costo_accessori} total={item.costo_totale} color="#ec4899" />
-            <CostBar label="Design / Engineering" value={item.costo_progettazione} total={item.costo_totale} color="#84cc16" />
+            <CostBar label="Progettazione" value={item.costo_progettazione} total={item.costo_totale} color="#84cc16" />
             <CostBar label="Extra project costs" value={item.costo_extra_progetto} total={item.costo_totale} color="#f97316" />
 
             <div
@@ -536,15 +536,21 @@ function ProjectCostAnalysis() {
 // ─── Financial Management (route-driven) ──────────────────────────────────────
 
 const SECTION_META: Record<string, { label: string; sub: string }> = {
-  "expenses":  { label: "Non-Recurring Expenses", sub: "Extraordinary & ad-hoc expenditures" },
-  "recurring": { label: "Recurring Overhead",      sub: "Subscriptions & fixed periodic costs" },
-  "projects":  { label: "Project Cost Analysis",   sub: "Profitability breakdown per job" },
+  "spese-straordinarie": { label: "Spese straordinarie", sub: "Costi una tantum e uscite eccezionali" },
+  "fissi": { label: "Costi fissi", sub: "Overhead ricorrenti e impegni periodici" },
+  "pricing": { label: "Pricing", sub: "Marginalita e breakdown costi per ordine" },
 }
 
 export default function FinancialManagement() {
   const { pathname } = useLocation()
-  const segment = pathname.split("/").pop() ?? "expenses"
-  const meta = SECTION_META[segment] ?? SECTION_META["expenses"]
+  const rawSegment = pathname.split("/").pop() ?? "spese-straordinarie"
+  const legacyMap: Record<string, string> = {
+    expenses: "spese-straordinarie",
+    recurring: "fissi",
+    projects: "pricing",
+  }
+  const segment = legacyMap[rawSegment] ?? rawSegment
+  const meta = SECTION_META[segment] ?? SECTION_META["spese-straordinarie"]
 
   return (
     <div className="max-w-3xl">
@@ -553,9 +559,9 @@ export default function FinancialManagement() {
         <p className="text-sm mt-0.5" style={{ color: "var(--muted-text)" }}>{meta.sub}</p>
       </div>
 
-      {segment === "expenses"  && <NonRecurringExpenses />}
-      {segment === "recurring" && <RecurringCosts />}
-      {segment === "projects"  && <ProjectCostAnalysis />}
+      {segment === "spese-straordinarie" && <NonRecurringExpenses />}
+      {segment === "fissi" && <RecurringCosts />}
+      {segment === "pricing" && <ProjectCostAnalysis />}
     </div>
   )
 }

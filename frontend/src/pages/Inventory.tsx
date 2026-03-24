@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import { SparePartsCatalog } from "@/components/inventory/SparePartsCatalog"
 import {
   Trash2, Plus, Zap, Settings, MoreVertical,
   Pencil, Clock, Cpu, Ruler, Box, Activity, Scale,
@@ -434,30 +435,66 @@ function ActionMenu({ onEdit }: { onEdit: () => void }) {
 // ─── Brand/Material dependent select ─────────────────────────────────────────
 
 function BrandMaterialSelect({
-  brand, material, onBrandChange, onMaterialChange,
+  brand, material, onBrandChange, onMaterialChange, existingBrands = [],
 }: {
   brand: string; material: string
   onBrandChange: (v: string) => void
   onMaterialChange: (v: string) => void
+  existingBrands?: string[]
 }) {
-  // brand can be: "" | a key from FILAMENT_DB | "Other" (→ show text input)
+  // Custom brands from saved spools that aren't in the predefined catalog
+  const customBrands = useMemo(
+    () => [...new Set(existingBrands.filter(b => b && !FILAMENT_DB[b]))],
+    [existingBrands]
+  )
+
+  // Local state for "Altro" free-text path
+  const [showOtherInput, setShowOtherInput] = useState(false)
+  const [otherInput, setOtherInput] = useState("")
+
+  // When brand is externally set to a value not in any known list, activate the Other input
+  useEffect(() => {
+    if (brand && !FILAMENT_DB[brand] && !customBrands.includes(brand)) {
+      setShowOtherInput(true)
+      setOtherInput(brand)
+    } else if (!brand || FILAMENT_DB[brand] || customBrands.includes(brand)) {
+      setShowOtherInput(false)
+    }
+  }, [brand, customBrands])
+
   const isKnownBrand = !!FILAMENT_DB[brand]
-  const materials    = isKnownBrand ? getMaterialsForBrand(brand) : []
+  const materials = isKnownBrand ? getMaterialsForBrand(brand) : []
+
+  const selectValue = showOtherInput
+    ? "__other__"
+    : (brand && (FILAMENT_DB[brand] || customBrands.includes(brand))) ? brand
+    : "__none__"
+
+  function handleSelectChange(v: string) {
+    if (v === "__none__") {
+      setShowOtherInput(false); setOtherInput("")
+      onBrandChange(""); onMaterialChange("")
+    } else if (v === "__other__") {
+      setShowOtherInput(true); setOtherInput("")
+      onBrandChange(""); onMaterialChange("")
+    } else {
+      setShowOtherInput(false); setOtherInput("")
+      onBrandChange(v); onMaterialChange("")
+    }
+  }
 
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label>Brand</Label>
-          <Select
-            value={brand || "__none__"}
-            onValueChange={v => { onBrandChange(v === "__none__" ? "" : v); onMaterialChange("") }}
-          >
+          <Select value={selectValue} onValueChange={handleSelectChange}>
             <SelectTrigger><SelectValue placeholder="Select brand…" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__none__">— Select brand —</SelectItem>
               {BRAND_NAMES.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-              <SelectItem value="Other">Other (free text)</SelectItem>
+              {customBrands.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+              <SelectItem value="__other__">Altro (testo libero)</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -486,13 +523,100 @@ function BrandMaterialSelect({
         </div>
       </div>
 
-      {brand === "Other" && (
+      {showOtherInput && (
         <div className="space-y-1">
-          <Label>Brand Name</Label>
-          <Input placeholder="e.g. Fiberlogy" value={brand === "Other" ? "" : brand} onChange={e => onBrandChange(e.target.value)} />
+          <Label>Nome brand</Label>
+          <Input
+            placeholder="es. Fiberlogy"
+            value={otherInput}
+            autoFocus
+            onChange={e => {
+              setOtherInput(e.target.value)
+              onBrandChange(e.target.value)
+            }}
+          />
         </div>
       )}
     </div>
+  )
+}
+
+// ─── Tare-on-delete dialog ────────────────────────────────────────────────────
+
+function TareOnDeleteDialog({
+  spool, overrides, open, onClose,
+}: {
+  spool: BobinaFilamento
+  overrides: TareOverride[]
+  open: boolean
+  onClose: () => void
+}) {
+  const toast = useToast()
+  const [tareInput, setTareInput] = useState("")
+  const currentTare = getEffectiveTare(spool.marca, spool.materiale, overrides)
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const tare_g = Number(tareInput)
+      await api.tareOverrides.upsert({ marca: spool.marca, materiale: spool.materiale, tare_g })
+      await api.magazzino.delete(spool.id)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["magazzino"] })
+      queryClient.invalidateQueries({ queryKey: ["tare-overrides"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] })
+      toast(`Tara aggiornata (${tareInput}g) — bobina eliminata`, "success")
+      onClose()
+      setTareInput("")
+    },
+    onError: (e: Error) => toast(e.message, "error"),
+  })
+
+  const tare_g = Number(tareInput)
+  const isValid = tareInput !== "" && !isNaN(tare_g) && tare_g > 0
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}>
+        <DialogHeader>
+          <DialogTitle style={{ color: "var(--text)" }}>Bobina terminata — aggiorna tara rocchetto</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-1">
+          <div className="rounded-lg p-3 space-y-1" style={{ background: "var(--muted-bg)" }}>
+            <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+              {spool.marca} · {spool.materiale} · {spool.colore}
+            </p>
+            <p className="text-xs" style={{ color: "var(--muted-text)" }}>
+              Tara attuale: <span className="font-medium" style={{ color: "var(--text)" }}>{currentTare} g</span>
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Peso rocchetto vuoto (g)</Label>
+            <Input
+              type="number"
+              min={1}
+              step={1}
+              placeholder={`es. ${currentTare}`}
+              value={tareInput}
+              onChange={e => setTareInput(e.target.value)}
+              autoFocus
+            />
+            <p className="text-xs" style={{ color: "var(--muted-text)" }}>
+              Pesa il rocchetto vuoto e inserisci il valore in grammi. Aggiornerà la tara per tutti i filamenti <strong>{spool.marca} {spool.materiale}</strong>.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" onClick={onClose} disabled={mutation.isPending}>Annulla</Button>
+            <Button
+              onClick={() => mutation.mutate()}
+              disabled={!isValid || mutation.isPending}
+            >
+              {mutation.isPending ? "Salvataggio..." : "Aggiorna tara ed elimina"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -501,9 +625,10 @@ function BrandMaterialSelect({
 function FilamentInventory() {
   const toast = useToast()
   const navigate = useNavigate()
-  const [status, setStatus]         = useState<StatusFilter>("New")
-  const [addOpen, setAddOpen]       = useState(false)
-  const [editSpool, setEditSpool]   = useState<BobinaFilamento | null>(null)
+  const [status, setStatus]           = useState<StatusFilter>("New")
+  const [addOpen, setAddOpen]         = useState(false)
+  const [editSpool, setEditSpool]     = useState<BobinaFilamento | null>(null)
+  const [tareDeleteSpool, setTareDeleteSpool] = useState<BobinaFilamento | null>(null)
 
   // Brand/material state for Add form
   const [addBrand, setAddBrand]       = useState("")
@@ -582,8 +707,8 @@ function FilamentInventory() {
     setGrossInputs(p => { const n = { ...p }; delete n[b.id]; return n })
   }
 
-  // "Other" is just the select sentinel — actual text typed replaces it via onBrandChange
-  const resolvedBrand = addBrand === "Other" ? "" : addBrand
+  const resolvedBrand = addBrand
+  const existingBrands = useMemo(() => [...new Set(bobine.map(b => b.marca).filter(Boolean))], [bobine])
 
   const thCls = "text-left text-xs font-semibold uppercase tracking-wider py-2 px-3"
   const tdCls = "py-2.5 px-3 text-sm"
@@ -618,6 +743,7 @@ function FilamentInventory() {
                 <BrandMaterialSelect
                   brand={addBrand} material={addMaterial}
                   onBrandChange={setAddBrand} onMaterialChange={setAddMaterial}
+                  existingBrands={existingBrands}
                 />
                 {/* Tare info */}
                 {resolvedBrand && addMaterial && (
@@ -678,7 +804,7 @@ function FilamentInventory() {
           <Button
             variant="outline" size="sm"
             title="Tare Configuration — Settings"
-            onClick={() => navigate("/impostazioni/tare-config")}
+            onClick={() => navigate("/impostazioni/config-filamenti")}
           >
             <Settings className="h-4 w-4" />
           </Button>
@@ -835,11 +961,20 @@ function FilamentInventory() {
                         {status === "Active" && (
                           <ActionMenu onEdit={() => setEditSpool(b)} />
                         )}
-                        <ConfirmDialog
-                          trigger={<Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button>}
-                          description={`Delete spool ${b.marca} ${b.materiale} (${b.colore})?`}
-                          onConfirm={() => deleteMutation.mutate(b.id)}
-                        />
+                        {status === "Finished" ? (
+                          <Button
+                            variant="ghost" size="icon"
+                            onClick={() => setTareDeleteSpool(b)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        ) : (
+                          <ConfirmDialog
+                            trigger={<Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                            description={`Delete spool ${b.marca} ${b.materiale} (${b.colore})?`}
+                            onConfirm={() => deleteMutation.mutate(b.id)}
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -852,6 +987,14 @@ function FilamentInventory() {
 
       {editSpool && (
         <SpoolEditDialog spool={editSpool} open={!!editSpool} onClose={() => setEditSpool(null)} fornitori={fornitori} />
+      )}
+      {tareDeleteSpool && (
+        <TareOnDeleteDialog
+          spool={tareDeleteSpool}
+          overrides={overrides}
+          open={!!tareDeleteSpool}
+          onClose={() => setTareDeleteSpool(null)}
+        />
       )}
     </div>
   )
@@ -1089,6 +1232,8 @@ const TIPO_PEZZO_OPTIONS = [
 ]
 
 function ComponentReplacements() {
+  return <SparePartsCatalog />
+
   const toast = useToast()
   const [addOpen, setAddOpen] = useState(false)
   const [printerSel, setPrinterSel] = useState<number[]>([])
@@ -1384,15 +1529,21 @@ function GenericAssets() {
 // ─── Inventory Management (route-driven) ──────────────────────────────────────
 
 const SECTION_META: Record<string, { label: string; sub: string }> = {
-  filament:   { label: "Filament Inventory",     sub: "Spool lifecycle tracking & consumption management" },
-  components: { label: "Component Replacements", sub: "Maintenance parts & MTBF lifecycle tracking" },
-  assets:     { label: "Generic Assets",         sub: "Miscellaneous stock & consumables register" },
+  filamenti: { label: "Filamenti", sub: "Bobine, consumo e stato delle scorte" },
+  ricambi: { label: "Ricambi stampanti", sub: "Parti di ricambio e compatibilita macchina" },
+  componenti: { label: "Componenti", sub: "Asset e componenti generici di magazzino" },
 }
 
 export default function InventoryManagement() {
   const { pathname } = useLocation()
-  const segment = pathname.split("/").pop() ?? "filament"
-  const meta = SECTION_META[segment] ?? SECTION_META["filament"]
+  const rawSegment = pathname.split("/").pop() ?? "filamenti"
+  const legacyMap: Record<string, string> = {
+    filament: "filamenti",
+    components: "ricambi",
+    assets: "componenti",
+  }
+  const segment = legacyMap[rawSegment] ?? rawSegment
+  const meta = SECTION_META[segment] ?? SECTION_META["filamenti"]
 
   return (
     <div>
@@ -1401,9 +1552,9 @@ export default function InventoryManagement() {
         <p className="text-sm mt-0.5" style={{ color: "var(--muted-text)" }}>{meta.sub}</p>
       </div>
 
-      {segment === "filament"   && <FilamentInventory />}
-      {segment === "components" && <ComponentReplacements />}
-      {segment === "assets"     && <GenericAssets />}
+      {segment === "filamenti" && <FilamentInventory />}
+      {segment === "ricambi" && <ComponentReplacements />}
+      {segment === "componenti" && <GenericAssets />}
     </div>
   )
 }

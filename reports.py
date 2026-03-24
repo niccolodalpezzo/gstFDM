@@ -1,12 +1,14 @@
 import os
 from datetime import datetime
 
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+
 def generate_project_report(progetto, calcoli):
     """
-    Genera un file di testo riepilogativo per un progetto e lo salva in /exports.
+    Genera un file di testo riepilogativo per un progetto e lo salva in exports/.
     """
     filename = f"Report_{progetto['nome'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-    filepath = os.path.join('exports', filename)
+    filepath = os.path.join(_ROOT, 'exports', filename)
     
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(f"========================================\n")

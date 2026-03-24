@@ -14,13 +14,14 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border px-3 py-2 text-sm shadow-sm",
-      "focus:outline-none focus:ring-1 focus:ring-ring",
-      "disabled:cursor-not-allowed disabled:opacity-50",
+      "flex h-9 w-full items-center justify-between whitespace-nowrap rounded-lg border px-3 py-2 text-sm transition-all duration-fast",
+      "focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-[var(--accent)]",
+      "hover:border-[var(--border-strong)]",
+      "disabled:cursor-not-allowed disabled:opacity-40",
       "[&>span]:line-clamp-1",
       className
     )}
-    style={{ background: "var(--input-bg)", color: "var(--text)", borderColor: "var(--border)" }}
+    style={{ background: "var(--input-bg)", color: "var(--text)", borderColor: "var(--border)", boxShadow: "var(--shadow-xs)" }}
     {...props}
   >
     {children}
@@ -39,12 +40,12 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border shadow-md",
+        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-xl border shadow-xl",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         position === "popper" && "translate-y-1",
         className
       )}
-      style={{ background: "var(--card-bg)", borderColor: "var(--border)", color: "var(--text)" }}
+      style={{ background: "var(--surface-1)", borderColor: "var(--card-border)", color: "var(--text)", boxShadow: "var(--shadow-xl)" }}
       position={position}
       {...props}
     >
@@ -66,7 +67,7 @@ const SelectItem = React.forwardRef<
     ref={ref}
     className={cn(
       "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none",
-      "focus:bg-accent/10 focus:text-accent",
+      "focus:bg-[var(--accent-subtle)] focus:text-[var(--accent)]",
       "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     )}

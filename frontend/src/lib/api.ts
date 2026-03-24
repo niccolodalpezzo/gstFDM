@@ -1,21 +1,25 @@
 import type {
   Progetto, ProgettoCreate,
-  Stampante, StampanteCreate,
+  Stampante, StampanteCreate, PrinterLiveStatus,
   BobinaFilamento, BobinaCreate, BobinaUpdate,
   CostoFisso, CostoFissoCreate,
   SpesaUnaTantum, SpesaUnaTantumCreate,
   LogStampa, LogStampaCreate,
   Settings,
   DashboardSummary, ProgettoCardData, DashboardAnalytics, ProjectCostItem,
-  ComponentReplacement, ComponentReplacementCreate,
+  ComponentCatalogMetadata, ComponentReplacement, ComponentReplacementCreate,
   GenericAsset, GenericAssetCreate,
   TareOverride,
   MaterialDensityRatio,
   Cliente, ClienteCreate,
   Fornitore, FornitoreCreate,
+  PianificazioneEvento,
+  MaintenanceTemplate, MaintenanceTemplateCreate,
+  PrinterMaintenanceStatus,
+  ExtraordinaryMaintenance,
 } from "@/types"
 
-const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8001"
+const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000"
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -66,6 +70,8 @@ export const api = {
       request<Stampante>(`/api/stampanti/${id}`, { method: "PUT", body: JSON.stringify(body) }),
     delete: (id: number) =>
       request<void>(`/api/stampanti/${id}`, { method: "DELETE" }),
+    liveStatus: (id: number) =>
+      request<PrinterLiveStatus>(`/api/stampanti/${id}/live-status`),
   },
 
   magazzino: {
@@ -124,6 +130,7 @@ export const api = {
   },
 
   componentReplacements: {
+    metadata: () => request<ComponentCatalogMetadata>("/api/component-replacements/metadata"),
     list: () => request<ComponentReplacement[]>("/api/component-replacements"),
     create: (body: ComponentReplacementCreate) =>
       request<ComponentReplacement>("/api/component-replacements", { method: "POST", body: JSON.stringify(body) }),
@@ -171,5 +178,69 @@ export const api = {
       request<Fornitore>(`/api/fornitori/${id}`, { method: "PUT", body: JSON.stringify(body) }),
     delete: (id: number) =>
       request<void>(`/api/fornitori/${id}`, { method: "DELETE" }),
+  },
+
+  pianificazione: {
+    list: (anno?: number, mese?: number, categoria?: string) => {
+      const params = new URLSearchParams()
+      if (anno) params.set("anno", String(anno))
+      if (mese) params.set("mese", String(mese))
+      if (categoria) params.set("categoria", categoria)
+      const qs = params.toString() ? `?${params.toString()}` : ""
+      return request<PianificazioneEvento[]>(`/api/pianificazione${qs}`)
+    },
+    get: (id: number) => request<PianificazioneEvento>(`/api/pianificazione/${id}`),
+    create: async (data: FormData): Promise<PianificazioneEvento> => {
+      const res = await fetch(`${BASE}/api/pianificazione`, { method: "POST", body: data })
+      if (!res.ok) { const t = await res.text(); throw new Error(`${res.status}: ${t}`) }
+      return res.json()
+    },
+    update: async (id: number, data: FormData): Promise<PianificazioneEvento> => {
+      const res = await fetch(`${BASE}/api/pianificazione/${id}`, { method: "PUT", body: data })
+      if (!res.ok) { const t = await res.text(); throw new Error(`${res.status}: ${t}`) }
+      return res.json()
+    },
+    delete: (id: number) => request<void>(`/api/pianificazione/${id}`, { method: "DELETE" }),
+    fileUrl: (id: number) => `${BASE}/api/pianificazione/${id}/file`,
+  },
+
+  manutenzioni: {
+    // Templates
+    listTemplates: () => request<MaintenanceTemplate[]>("/api/manutenzioni/templates"),
+    createTemplate: (body: MaintenanceTemplateCreate) =>
+      request<MaintenanceTemplate>("/api/manutenzioni/templates", { method: "POST", body: JSON.stringify(body) }),
+    updateTemplate: (id: number, body: MaintenanceTemplateCreate) =>
+      request<MaintenanceTemplate>(`/api/manutenzioni/templates/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    deleteTemplate: (id: number) =>
+      request<void>(`/api/manutenzioni/templates/${id}`, { method: "DELETE" }),
+
+    // Printer maintenance status
+    listPrinters: () => request<PrinterMaintenanceStatus[]>("/api/manutenzioni/stampanti"),
+    getPrinter: (id: number) => request<PrinterMaintenanceStatus>(`/api/manutenzioni/stampanti/${id}`),
+    markDone: (printerId: number, templateId: number, accumulated_hours: number, tempo_impiegato_minuti: number, note = "") =>
+      request<PrinterMaintenanceStatus>(
+        `/api/manutenzioni/stampanti/${printerId}/templates/${templateId}/done`,
+        { method: "POST", body: JSON.stringify({ accumulated_hours, tempo_impiegato_minuti, note }) }
+      ),
+
+    // Dashboard alerts
+    dashboardAlerts: () => request<PrinterMaintenanceStatus[]>("/api/manutenzioni/dashboard-alerts"),
+
+    // Extraordinary maintenance
+    listStraordinaria: (printer_id?: number) => {
+      const qs = printer_id ? `?printer_id=${printer_id}` : ""
+      return request<ExtraordinaryMaintenance[]>(`/api/manutenzioni/straordinaria${qs}`)
+    },
+    createStraordinaria: (body: {
+      printer_id: number
+      descrizione_problema: string
+      giorni_fermo: number
+      componenti: Array<{ descrizione: string; link: string; costo: number }>
+      note: string
+      ore_print_farm_da_spalmare?: number | null
+    }) =>
+      request<ExtraordinaryMaintenance>("/api/manutenzioni/straordinaria", { method: "POST", body: JSON.stringify(body) }),
+    deleteStraordinaria: (id: number) =>
+      request<void>(`/api/manutenzioni/straordinaria/${id}`, { method: "DELETE" }),
   },
 }

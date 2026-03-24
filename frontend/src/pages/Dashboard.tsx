@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react"
+import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts"
-import { TrendingUp, TrendingDown, Activity, AlertTriangle, Package } from "lucide-react"
+import { TrendingUp, TrendingDown, Activity, AlertTriangle, Package, Wrench } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { api } from "@/lib/api"
 import { formatEur } from "@/lib/utils"
-import type { ChartItem, ScortaItem } from "@/types"
+import type { ChartItem, PrinterMaintenanceStatus, ScortaItem } from "@/types"
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -295,6 +296,76 @@ function LowStockAlerts({ scorte }: { scorte: ScortaItem[] }) {
   )
 }
 
+// ─── Maintenance Alerts Widget ────────────────────────────────────────────────
+
+const MAINT_STATO_META = {
+  warning: { color: "#f59e0b", label: "In scadenza" },
+  due:     { color: "#ef4444", label: "Scaduta" },
+} as const
+
+function MaintenanceAlertsWidget({ alerts }: { alerts: PrinterMaintenanceStatus[] }) {
+  const navigate = useNavigate()
+
+  return (
+    <Card
+      className="flex flex-col"
+      style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}
+    >
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2" style={{ color: "var(--text)" }}>
+          <Wrench className="h-4 w-4" style={{ color: "var(--accent)" }} />
+          Manutenzioni in scadenza
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex-1 overflow-y-auto pb-3 space-y-1">
+        {alerts.length === 0 ? (
+          <p className="text-xs py-2 text-center" style={{ color: "var(--muted-text)" }}>
+            Tutte le manutenzioni sono ok
+          </p>
+        ) : (
+          alerts.map(ps => (
+            <div
+              key={ps.printer_id}
+              className="rounded-lg px-3 py-2 cursor-pointer transition-opacity hover:opacity-80"
+              style={{
+                background: ps.worst_stato === "due" ? "rgba(239,68,68,0.08)" : "rgba(245,158,11,0.08)",
+              }}
+              onClick={() => navigate(`/stampanti/manutenzioni`)}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium truncate" style={{ color: "var(--text)" }}>
+                  {ps.printer_nome}
+                </p>
+                <span
+                  className="text-xs font-semibold shrink-0"
+                  style={{ color: MAINT_STATO_META[ps.worst_stato as "warning" | "due"]?.color ?? "#94a3b8" }}
+                >
+                  {MAINT_STATO_META[ps.worst_stato as "warning" | "due"]?.label}
+                </span>
+              </div>
+              {ps.items.filter(i => i.stato !== "ok").slice(0, 2).map(item => (
+                <p key={item.template_id} className="text-xs mt-0.5 truncate" style={{ color: "var(--muted-text)" }}>
+                  · {item.template_nome}: {item.elapsed_hours.toFixed(1)}h / {item.soglia_ore_massima}h
+                </p>
+              ))}
+              <button
+                className="mt-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                style={{ color: "var(--accent)" }}
+                onClick={e => {
+                  e.stopPropagation()
+                  navigate(`/produzione/pianificazione?categoria=manutenzione&printer_id=${ps.printer_id}`)
+                }}
+              >
+                Pianifica →
+              </button>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -325,6 +396,12 @@ export default function Dashboard() {
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard", "analytics", queryParams],
     queryFn: () => api.dashboard.analytics(queryParams),
+  })
+
+  const { data: maintenanceAlerts = [] } = useQuery({
+    queryKey: ["manutenzioni", "dashboard-alerts"],
+    queryFn: api.manutenzioni.dashboardAlerts,
+    staleTime: 60_000,
   })
 
   const filterLabels: Record<FilterMode, string> = {
@@ -457,9 +534,10 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right panel: Supply Chain */}
-          <div className="w-64 flex-shrink-0">
+          {/* Right panel: Supply Chain + Maintenance */}
+          <div className="w-64 flex-shrink-0 flex flex-col gap-4">
             <LowStockAlerts scorte={data?.scorte ?? []} />
+            <MaintenanceAlertsWidget alerts={maintenanceAlerts} />
           </div>
         </div>
       )}
