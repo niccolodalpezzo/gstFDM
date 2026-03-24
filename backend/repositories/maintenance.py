@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from backend.repositories.base import dataframe_to_records, first_record
+from backend.repositories.base import dataframe_to_records
 import database as db
 
 
@@ -22,6 +22,7 @@ def create_template(data) -> dict | None:
         soglia_ore_massima=data.soglia_ore_massima,
         ordine_visualizzazione=data.ordine_visualizzazione,
         attiva=data.attiva,
+        costo_standard_intervento=getattr(data, "costo_standard_intervento", 0.0),
     )
     return get_template(new_id)
 
@@ -34,6 +35,7 @@ def update_template(template_id: int, data) -> dict | None:
         soglia_ore_massima=data.soglia_ore_massima,
         ordine_visualizzazione=data.ordine_visualizzazione,
         attiva=data.attiva,
+        costo_standard_intervento=getattr(data, "costo_standard_intervento", 0.0),
     )
     return get_template(template_id)
 

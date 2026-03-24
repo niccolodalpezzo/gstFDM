@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routers import settings, stampanti, progetti, magazzino, costi_fissi, log_stampe, dashboard, spese_una_tantum, component_replacements, generic_assets, tare_overrides, clienti, fornitori, material_density_ratios, pianificazione, manutenzioni
+from backend.routers import settings, stampanti, progetti, magazzino, costi_fissi, log_stampe, dashboard, spese_una_tantum, component_replacements, generic_assets, tare_overrides, clienti, fornitori, material_density_ratios, pianificazione, manutenzioni, preventivi
 import utils
 
 app = FastAPI(title="PrintFarm API", version="1.0.0")
@@ -45,6 +45,7 @@ app.include_router(fornitori.router,              prefix="/api/fornitori",      
 app.include_router(material_density_ratios.router, prefix="/api/material-density-ratios", tags=["material_density_ratios"])
 app.include_router(pianificazione.router,          prefix="/api/pianificazione",          tags=["pianificazione"])
 app.include_router(manutenzioni.router,            prefix="/api/manutenzioni",            tags=["manutenzioni"])
+app.include_router(preventivi.router,              prefix="/api/preventivi",              tags=["preventivi"])
 
 
 @app.get("/")

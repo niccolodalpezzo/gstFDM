@@ -8,74 +8,117 @@ const FONT_URLS: Record<string, string> = {
   "JetBrains Mono": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap",
 }
 
+const DARK_TOKENS: Record<string, string> = {
+  "--app-bg": "#07090f",
+  "--bg": "#0b0d14",
+  "--surface-1": "#11141d",
+  "--surface-2": "#171c27",
+  "--surface-3": "#202737",
+  "--surface-4": "#2a3347",
+  "--sidebar-bg": "#0b0e14",
+  "--rail-bg": "#090c12",
+  "--rail-active-bg": "rgba(255,255,255,0.06)",
+  "--rail-icon-color": "#7c8498",
+  "--rail-icon-active": "#eef4fb",
+  "--panel-bg": "#11151f",
+  "--panel-border": "rgba(255,255,255,0.07)",
+  "--panel-icon-bg": "rgba(255,255,255,0.05)",
+  "--main-surface": "#0f131d",
+  "--main-border": "rgba(255,255,255,0.08)",
+  "--text": "#eef2f7",
+  "--text-secondary": "#c1c9d6",
+  "--muted-text": "#8b93a7",
+  "--muted-text-light": "#616980",
+  "--border": "rgba(255,255,255,0.08)",
+  "--border-strong": "rgba(255,255,255,0.14)",
+  "--card-bg": "rgba(18,23,33,0.92)",
+  "--card-border": "rgba(255,255,255,0.08)",
+  "--input-bg": "rgba(255,255,255,0.04)",
+  "--input-border": "rgba(255,255,255,0.1)",
+  "--muted-bg": "rgba(255,255,255,0.05)",
+  "--hover-bg": "rgba(255,255,255,0.06)",
+  "--shadow-xs": "0 1px 2px rgba(0,0,0,0.22)",
+  "--shadow-sm": "0 14px 30px rgba(0,0,0,0.18)",
+  "--shadow-md": "0 24px 56px rgba(0,0,0,0.26)",
+  "--shadow-lg": "0 34px 74px rgba(0,0,0,0.34)",
+  "--shadow-xl": "0 44px 96px rgba(0,0,0,0.42)",
+  "--shell-shadow": "0 30px 70px rgba(0,0,0,0.38)",
+  "--main-shadow": "inset 0 1px 0 rgba(255,255,255,0.03), 0 36px 80px rgba(0,0,0,0.28)",
+  "--success": "#4ade80",
+  "--success-bg": "rgba(74,222,128,0.1)",
+  "--warning": "#fbbf24",
+  "--warning-bg": "rgba(251,191,36,0.12)",
+  "--error": "#f87171",
+  "--error-bg": "rgba(248,113,113,0.12)",
+  "--info": "#60a5fa",
+  "--info-bg": "rgba(96,165,250,0.12)",
+}
+
+const LIGHT_TOKENS: Record<string, string> = {
+  "--app-bg": "#eef1f7",
+  "--bg": "#f4f7fb",
+  "--surface-1": "#ffffff",
+  "--surface-2": "#f4f6fb",
+  "--surface-3": "#e9edf6",
+  "--surface-4": "#d9e0ef",
+  "--sidebar-bg": "#ffffff",
+  "--rail-bg": "#edf2fb",
+  "--rail-active-bg": "rgba(15,23,42,0.08)",
+  "--rail-icon-color": "#64748b",
+  "--rail-icon-active": "#0f172a",
+  "--panel-bg": "#f8faff",
+  "--panel-border": "rgba(15,23,42,0.09)",
+  "--panel-icon-bg": "rgba(15,23,42,0.06)",
+  "--main-surface": "#ffffff",
+  "--main-border": "rgba(15,23,42,0.08)",
+  "--text": "#0f172a",
+  "--text-secondary": "#334155",
+  "--muted-text": "#64748b",
+  "--muted-text-light": "#94a3b8",
+  "--border": "rgba(15,23,42,0.08)",
+  "--border-strong": "rgba(15,23,42,0.14)",
+  "--card-bg": "rgba(255,255,255,0.96)",
+  "--card-border": "rgba(15,23,42,0.08)",
+  "--input-bg": "#ffffff",
+  "--input-border": "rgba(15,23,42,0.12)",
+  "--muted-bg": "rgba(15,23,42,0.04)",
+  "--hover-bg": "rgba(15,23,42,0.06)",
+  "--shadow-xs": "0 1px 2px rgba(15,23,42,0.06)",
+  "--shadow-sm": "0 14px 30px rgba(15,23,42,0.08)",
+  "--shadow-md": "0 24px 56px rgba(15,23,42,0.1)",
+  "--shadow-lg": "0 34px 74px rgba(15,23,42,0.12)",
+  "--shadow-xl": "0 44px 96px rgba(15,23,42,0.14)",
+  "--shell-shadow": "0 24px 60px rgba(15,23,42,0.1)",
+  "--main-shadow": "inset 0 1px 0 rgba(255,255,255,0.7), 0 28px 68px rgba(15,23,42,0.08)",
+  "--success": "#16a34a",
+  "--success-bg": "rgba(22,163,74,0.1)",
+  "--warning": "#d97706",
+  "--warning-bg": "rgba(217,119,6,0.12)",
+  "--error": "#dc2626",
+  "--error-bg": "rgba(220,38,38,0.12)",
+  "--info": "#2563eb",
+  "--info-bg": "rgba(37,99,235,0.12)",
+}
+
+function applyTokenSet(root: HTMLElement, tokens: Record<string, string>) {
+  Object.entries(tokens).forEach(([key, value]) => {
+    root.style.setProperty(key, value)
+  })
+}
+
 export function applyTheme(settings: Pick<Settings, "theme_mode" | "theme_accent" | "theme_font">) {
   const root = document.documentElement
   const isDark = settings.theme_mode === "Scuro"
   const accent = settings.theme_accent || "#1cc123"
+  const fontName = settings.theme_font || "Outfit"
+
+  applyTokenSet(root, isDark ? DARK_TOKENS : LIGHT_TOKENS)
+  root.classList.toggle("dark", isDark)
 
   root.style.setProperty("--accent", accent)
-  root.style.setProperty("--accent-hover", `color-mix(in srgb, ${accent} 85%, ${isDark ? "white" : "black"})`)
-  root.style.setProperty("--accent-subtle", `color-mix(in srgb, ${accent} ${isDark ? "12%" : "10%"}, transparent)`)
-
-  if (isDark) {
-    root.style.setProperty("--bg", "#0d0e14")
-    root.style.setProperty("--surface-1", "#13141d")
-    root.style.setProperty("--surface-2", "#1a1b26")
-    root.style.setProperty("--surface-3", "#21222e")
-    root.style.setProperty("--sidebar-bg", "#111219")
-    root.style.setProperty("--text", "#e8eaf0")
-    root.style.setProperty("--text-secondary", "#c4c8d8")
-    root.style.setProperty("--muted-text", "#8b92a8")
-    root.style.setProperty("--muted-text-light", "#5c6380")
-    root.style.setProperty("--border", "rgba(255,255,255,0.07)")
-    root.style.setProperty("--border-strong", "rgba(255,255,255,0.13)")
-    root.style.setProperty("--card-bg", "rgba(26,27,38,0.95)")
-    root.style.setProperty("--card-border", "rgba(255,255,255,0.06)")
-    root.style.setProperty("--input-bg", "rgba(255,255,255,0.05)")
-    root.style.setProperty("--muted-bg", "rgba(255,255,255,0.04)")
-    root.style.setProperty("--shadow-xs", "0 1px 2px rgba(0,0,0,0.25)")
-    root.style.setProperty("--shadow-sm", "0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25)")
-    root.style.setProperty("--shadow-md", "0 4px 6px -1px rgba(0,0,0,0.4), 0 2px 4px -1px rgba(0,0,0,0.3)")
-    root.style.setProperty("--shadow-lg", "0 10px 15px -3px rgba(0,0,0,0.45), 0 4px 6px -2px rgba(0,0,0,0.3)")
-    root.style.setProperty("--shadow-xl", "0 20px 25px -5px rgba(0,0,0,0.5), 0 10px 10px -5px rgba(0,0,0,0.3)")
-    root.style.setProperty("--success", "#4ade80")
-    root.style.setProperty("--success-bg", "rgba(74,222,128,0.08)")
-    root.style.setProperty("--warning", "#fbbf24")
-    root.style.setProperty("--warning-bg", "rgba(251,191,36,0.08)")
-    root.style.setProperty("--error", "#f87171")
-    root.style.setProperty("--error-bg", "rgba(248,113,113,0.08)")
-    root.classList.add("dark")
-  } else {
-    root.style.setProperty("--bg", "#f4f5f7")
-    root.style.setProperty("--surface-1", "#ffffff")
-    root.style.setProperty("--surface-2", "#f8f9fa")
-    root.style.setProperty("--surface-3", "#f1f3f5")
-    root.style.setProperty("--sidebar-bg", "#ffffff")
-    root.style.setProperty("--text", "#0f1117")
-    root.style.setProperty("--text-secondary", "#374151")
-    root.style.setProperty("--muted-text", "#6b7280")
-    root.style.setProperty("--muted-text-light", "#9ca3af")
-    root.style.setProperty("--border", "rgba(0,0,0,0.07)")
-    root.style.setProperty("--border-strong", "rgba(0,0,0,0.14)")
-    root.style.setProperty("--card-bg", "#ffffff")
-    root.style.setProperty("--card-border", "rgba(0,0,0,0.06)")
-    root.style.setProperty("--input-bg", "#ffffff")
-    root.style.setProperty("--muted-bg", "rgba(0,0,0,0.03)")
-    root.style.setProperty("--shadow-xs", "0 1px 2px rgba(0,0,0,0.04)")
-    root.style.setProperty("--shadow-sm", "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)")
-    root.style.setProperty("--shadow-md", "0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.04)")
-    root.style.setProperty("--shadow-lg", "0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04)")
-    root.style.setProperty("--shadow-xl", "0 20px 25px -5px rgba(0,0,0,0.08), 0 10px 10px -5px rgba(0,0,0,0.03)")
-    root.style.setProperty("--success", "#16a34a")
-    root.style.setProperty("--success-bg", "#f0fdf4")
-    root.style.setProperty("--warning", "#d97706")
-    root.style.setProperty("--warning-bg", "#fffbeb")
-    root.style.setProperty("--error", "#dc2626")
-    root.style.setProperty("--error-bg", "#fef2f2")
-    root.classList.remove("dark")
-  }
-
-  const fontName = settings.theme_font || "Inter"
+  root.style.setProperty("--accent-hover", `color-mix(in srgb, ${accent} 82%, ${isDark ? "white" : "black"})`)
+  root.style.setProperty("--accent-subtle", `color-mix(in srgb, ${accent} ${isDark ? "14%" : "12%"}, transparent)`)
+  root.style.setProperty("--accent-foreground", "#ffffff")
   root.style.setProperty("--font", `'${fontName}', system-ui, sans-serif`)
 
   const url = FONT_URLS[fontName]

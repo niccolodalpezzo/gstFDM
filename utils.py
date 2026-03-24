@@ -11,6 +11,10 @@ SETTINGS_FILE = os.path.join(_ROOT, 'configs', 'settings.json')
 DEFAULT_SETTINGS = {
     "costo_kwh": 0.25,
     "costo_orario_post_prod": 15.0,
+    "costo_orario_manodopera": 15.0,
+    "margine_lordo_default_perc": 35.0,
+    "costo_orario_progettazione_default": 25.0,
+    "criterio_rischio_default": "standard",
     "ore_lavorative_mensili_farm": 160,  # Ore stimate di stampa totali nel mese per calcolo costi fissi
     "maintenance_interval_hours": 250.0,
     "theme_mode": "Scuro",               # Default Dark mode

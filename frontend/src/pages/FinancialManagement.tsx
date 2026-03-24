@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form"
 import { api } from "@/lib/api"
 import { queryClient } from "@/lib/queryClient"
 import { useToast } from "@/components/ui/toast"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,15 +13,19 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
-import { Trash2, TrendingUp, TrendingDown, Minus } from "lucide-react"
+import { Trash2, TrendingUp, TrendingDown, Minus, AlertCircle } from "lucide-react"
 import { formatEur } from "@/lib/utils"
-import type { SpesaUnaTantumCreate, CostoFissoCreate, ProjectCostItem } from "@/types"
+import type { SpesaUnaTantumCreate, CostoFissoCreate, ProjectCostItem, CostoStraordinarioStrutturaCreate } from "@/types"
 
-const FREQUENCIES = ["Weekly", "Monthly", "Yearly"]
+const FREQUENZE = [
+  { value: "Weekly",  label: "Settimanale" },
+  { value: "Monthly", label: "Mensile" },
+  { value: "Yearly",  label: "Annuale" },
+]
 
-// ─── Non-Recurring Expenses ───────────────────────────────────────────────────
+// ─── Spese Straordinarie ──────────────────────────────────────────────────────
 
-function NonRecurringExpenses() {
+function SpeseUnaTantum() {
   const toast = useToast()
 
   const { data: spese = [], isLoading } = useQuery({
@@ -36,7 +41,7 @@ function NonRecurringExpenses() {
   const { register, handleSubmit, reset, setValue, watch } = useForm<SpesaUnaTantumCreate>({
     defaultValues: { note: "", data: new Date().toISOString().slice(0, 10), fornitore_id: null },
   })
-  
+
   const selectedFornitoreId = watch("fornitore_id")
 
   const createMutation = useMutation({
@@ -45,28 +50,27 @@ function NonRecurringExpenses() {
       queryClient.invalidateQueries({ queryKey: ["spese-una-tantum"] })
       reset({ note: "", data: new Date().toISOString().slice(0, 10), fornitore_id: null })
       setValue("fornitore_id", null)
-      toast("Expense recorded", "success")
+      toast("Spesa registrata", "success")
     },
-    onError: () => toast("Error saving expense", "error"),
+    onError: () => toast("Errore nel salvataggio", "error"),
   })
 
   const deleteMutation = useMutation({
     mutationFn: api.speseUnaTantum.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["spese-una-tantum"] })
-      toast("Expense deleted", "success")
+      toast("Spesa eliminata", "success")
     },
-    onError: () => toast("Error", "error"),
+    onError: () => toast("Errore", "error"),
   })
 
   const total = spese.reduce((s, e) => s + e.importo, 0)
 
   return (
     <div className="space-y-6">
-      {/* Form */}
       <Card>
         <CardHeader>
-          <CardTitle>Register Non-Recurring Expense</CardTitle>
+          <CardTitle>Registra Spesa Straordinaria</CardTitle>
         </CardHeader>
         <CardContent>
           <form
@@ -75,11 +79,11 @@ function NonRecurringExpenses() {
           >
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1 col-span-2 md:col-span-1">
-                <Label>Description *</Label>
-                <Input {...register("descrizione")} required placeholder="e.g. Nozzle replacement kit" />
+                <Label>Descrizione *</Label>
+                <Input {...register("descrizione")} required placeholder="es. Kit sostituzione ugello" />
               </div>
               <div className="space-y-1">
-                <Label>Amount (€) *</Label>
+                <Label>Importo (€) *</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -91,18 +95,18 @@ function NonRecurringExpenses() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>Date *</Label>
+                <Label>Data *</Label>
                 <Input type="date" {...register("data")} required />
               </div>
               <div className="space-y-1">
-                <Label>Vendor</Label>
+                <Label>Fornitore</Label>
                 <Select
                   value={selectedFornitoreId ? String(selectedFornitoreId) : "none"}
                   onValueChange={v => setValue("fornitore_id", v === "none" ? null : Number(v))}
                 >
-                  <SelectTrigger><SelectValue placeholder="Select vendor..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Seleziona fornitore..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">— None —</SelectItem>
+                    <SelectItem value="none">— Nessuno —</SelectItem>
                     {fornitori.map(f => (
                       <SelectItem key={f.id} value={String(f.id)}>{f.ragione_sociale}</SelectItem>
                     ))}
@@ -111,21 +115,20 @@ function NonRecurringExpenses() {
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Notes / Reference</Label>
-              <Input {...register("note")} placeholder="Invoice ref., supplier, etc." />
+              <Label>Note / Riferimento</Label>
+              <Input {...register("note")} placeholder="Rif. fattura, fornitore, ecc." />
             </div>
             <Button type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Saving..." : "Record Expense"}
+              {createMutation.isPending ? "Salvataggio..." : "Registra Spesa"}
             </Button>
           </form>
         </CardContent>
       </Card>
 
-      {/* List */}
       {isLoading ? (
-        <p className="opacity-50 text-sm">Loading...</p>
+        <p className="opacity-50 text-sm">Caricamento...</p>
       ) : spese.length === 0 ? (
-        <p className="opacity-50 text-sm">No non-recurring expenses recorded yet.</p>
+        <p className="opacity-50 text-sm">Nessuna spesa straordinaria registrata.</p>
       ) : (
         <div className="space-y-2">
           {spese.map(e => (
@@ -149,7 +152,7 @@ function NonRecurringExpenses() {
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     }
-                    description={`Delete expense "${e.descrizione}"?`}
+                    description={`Eliminare la spesa "${e.descrizione}"?`}
                     onConfirm={() => deleteMutation.mutate(e.id)}
                   />
                 </div>
@@ -159,9 +162,159 @@ function NonRecurringExpenses() {
 
           <div className="pt-3 border-t flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
             <p className="text-sm font-medium" style={{ color: "var(--muted-text)" }}>
-              Total non-recurring expenditure
+              Totale spese straordinarie
             </p>
             <p className="text-xl font-bold" style={{ color: "#ef4444" }}>{formatEur(total)}</p>
+          </div>
+        </div>
+      )}
+
+      <CostiStraordinariStruttura />
+    </div>
+  )
+}
+
+function CostiStraordinariStruttura() {
+  const toast = useToast()
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["costi-struttura"],
+    queryFn: api.preventivi.structureCosts.list,
+  })
+
+  const { register, handleSubmit, reset } = useForm<CostoStraordinarioStrutturaCreate>({
+    defaultValues: {
+      descrizione: "",
+      importo_totale: 0,
+      importo_residuo: undefined,
+      quota_oraria: 0,
+      ore_da_spalmare_totali: undefined,
+      ore_da_spalmare_residue: undefined,
+      attivo: true,
+      data: new Date().toISOString().slice(0, 10),
+      note: "",
+    },
+  })
+
+  const createMutation = useMutation({
+    mutationFn: api.preventivi.structureCosts.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["costi-struttura"] })
+      reset({
+        descrizione: "",
+        importo_totale: 0,
+        importo_residuo: undefined,
+        quota_oraria: 0,
+        ore_da_spalmare_totali: undefined,
+        ore_da_spalmare_residue: undefined,
+        attivo: true,
+        data: new Date().toISOString().slice(0, 10),
+        note: "",
+      })
+      toast("Costo struttura registrato", "success")
+    },
+    onError: error => toast(error instanceof Error ? error.message : "Errore nel salvataggio", "error"),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: api.preventivi.structureCosts.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["costi-struttura"] })
+      toast("Costo struttura eliminato", "success")
+    },
+    onError: error => toast(error instanceof Error ? error.message : "Errore nell'eliminazione", "error"),
+  })
+
+  const totaleResiduo = items.filter(item => item.attivo).reduce((sum, item) => sum + item.importo_residuo, 0)
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Costi straordinari di struttura</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(data => createMutation.mutate(data))} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1 col-span-2 md:col-span-1">
+                <Label>Descrizione *</Label>
+                <Input {...register("descrizione")} required placeholder="Es. Upgrade quadro elettrico, accessorio farm, banco tecnico" />
+              </div>
+              <div className="space-y-1">
+                <Label>Data *</Label>
+                <Input type="date" {...register("data")} required />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="space-y-1">
+                <Label>Importo totale</Label>
+                <Input type="number" step="0.01" min="0" {...register("importo_totale", { valueAsNumber: true })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Importo residuo</Label>
+                <Input type="number" step="0.01" min="0" {...register("importo_residuo", { setValueAs: value => value === "" ? undefined : Number(value) })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Quota oraria</Label>
+                <Input type="number" step="0.0001" min="0" {...register("quota_oraria", { valueAsNumber: true })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Ore da spalmare</Label>
+                <Input type="number" step="0.1" min="0" {...register("ore_da_spalmare_totali", { setValueAs: value => value === "" ? undefined : Number(value) })} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Note</Label>
+              <Input {...register("note")} placeholder="Facoltativo" />
+            </div>
+            <Button type="submit" disabled={createMutation.isPending}>
+              {createMutation.isPending ? "Salvataggio..." : "Aggiungi costo struttura"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {isLoading ? (
+        <p className="opacity-50 text-sm">Caricamento...</p>
+      ) : items.length === 0 ? (
+        <p className="opacity-50 text-sm">Nessun costo straordinario di struttura registrato.</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map(item => (
+            <Card key={item.id} className={item.attivo ? "" : "opacity-55"}>
+              <CardContent className="py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-sm">{item.descrizione}</p>
+                    <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: item.attivo ? "rgba(34,197,94,0.12)" : "rgba(148,163,184,0.12)", color: item.attivo ? "#22c55e" : "#94a3b8" }}>
+                      {item.attivo ? "Attivo" : "Esaurito"}
+                    </span>
+                  </div>
+                  <p className="text-xs" style={{ color: "var(--muted-text)" }}>
+                    Residuo {formatEur(item.importo_residuo)} su {formatEur(item.importo_totale)}
+                    <span className="mx-1">·</span>
+                    Quota {formatEur(item.quota_oraria)}/h
+                    {item.ore_da_spalmare_residue != null && (
+                      <>
+                        <span className="mx-1">·</span>
+                        Ore residue {item.ore_da_spalmare_residue.toFixed(1)}
+                      </>
+                    )}
+                  </p>
+                </div>
+                <ConfirmDialog
+                  trigger={<Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                  description={`Eliminare il costo struttura "${item.descrizione}"?`}
+                  onConfirm={() => deleteMutation.mutate(item.id)}
+                />
+              </CardContent>
+            </Card>
+          ))}
+
+          <div className="pt-3 border-t flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
+            <p className="text-sm font-medium" style={{ color: "var(--muted-text)" }}>
+              Residuo attivo da recuperare
+            </p>
+            <p className="text-xl font-bold" style={{ color: "var(--accent)" }}>{formatEur(totaleResiduo)}</p>
           </div>
         </div>
       )}
@@ -169,9 +322,9 @@ function NonRecurringExpenses() {
   )
 }
 
-// ─── Recurring Overhead ───────────────────────────────────────────────────────
+// ─── Costi Fissi Ricorrenti ───────────────────────────────────────────────────
 
-function RecurringCosts() {
+function CostiFissi() {
   const toast = useToast()
   const [frequenza, setFrequenza] = useState("Monthly")
 
@@ -192,9 +345,9 @@ function RecurringCosts() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] })
       reset({ data_inizio: new Date().toISOString().slice(0, 10) })
       setFrequenza("Monthly")
-      toast("Subscription added", "success")
+      toast("Costo fisso aggiunto", "success")
     },
-    onError: () => toast("Error", "error"),
+    onError: () => toast("Errore", "error"),
   })
 
   const toggleMutation = useMutation({
@@ -211,25 +364,24 @@ function RecurringCosts() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["costi-fissi"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard"] })
-      toast("Subscription deleted", "success")
+      toast("Costo fisso eliminato", "success")
     },
-    onError: () => toast("Error", "error"),
+    onError: () => toast("Errore", "error"),
   })
 
   const activeTotal = costi.filter(c => c.attivo).reduce((s, c) => s + c.importo_mensile, 0)
 
   const freqLabel: Record<string, string> = {
-    Weekly: "week",
-    Monthly: "month",
-    Yearly: "year",
+    Weekly: "settimana",
+    Monthly: "mese",
+    Yearly: "anno",
   }
 
   return (
     <div className="space-y-6">
-      {/* Form */}
       <Card>
         <CardHeader>
-          <CardTitle>New Recurring Cost</CardTitle>
+          <CardTitle>Nuovo Costo Fisso</CardTitle>
         </CardHeader>
         <CardContent>
           <form
@@ -238,11 +390,11 @@ function RecurringCosts() {
           >
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1 col-span-2 md:col-span-1">
-                <Label>Description *</Label>
-                <Input {...register("nome")} required placeholder="e.g. Cloud storage, Software license" />
+                <Label>Descrizione *</Label>
+                <Input {...register("nome")} required placeholder="es. Affitto locale, Software, Utenze" />
               </div>
               <div className="space-y-1">
-                <Label>Amount (€/period) *</Label>
+                <Label>Importo (€/periodo) *</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -254,35 +406,34 @@ function RecurringCosts() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>Start Date</Label>
+                <Label>Data inizio</Label>
                 <Input type="date" {...register("data_inizio")} />
               </div>
               <div className="space-y-1">
-                <Label>Billing Frequency *</Label>
+                <Label>Frequenza *</Label>
                 <Select value={frequenza} onValueChange={setFrequenza}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {FREQUENCIES.map(f => (
-                      <SelectItem key={f} value={f}>{f}</SelectItem>
+                    {FREQUENZE.map(f => (
+                      <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <Button type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Saving..." : "Add Subscription"}
+              {createMutation.isPending ? "Salvataggio..." : "Aggiungi Costo Fisso"}
             </Button>
           </form>
         </CardContent>
       </Card>
 
-      {/* List */}
       {isLoading ? (
-        <p className="opacity-50 text-sm">Loading...</p>
+        <p className="opacity-50 text-sm">Caricamento...</p>
       ) : costi.length === 0 ? (
-        <p className="opacity-50 text-sm">No recurring costs registered yet.</p>
+        <p className="opacity-50 text-sm">Nessun costo fisso registrato.</p>
       ) : (
         <div className="space-y-2">
           {costi.map(c => (
@@ -303,12 +454,12 @@ function RecurringCosts() {
                           color: "var(--accent)",
                         }}
                       >
-                        {c.frequenza ?? "Monthly"}
+                        {FREQUENZE.find(f => f.value === (c.frequenza ?? "Monthly"))?.label ?? "Mensile"}
                       </span>
                     </div>
                     <p className="text-xs" style={{ color: "var(--muted-text)" }}>
-                      {formatEur(c.importo_mensile)} / {freqLabel[c.frequenza ?? "Monthly"] ?? "month"}
-                      {c.data_inizio && <span className="ml-2">· since {c.data_inizio}</span>}
+                      {formatEur(c.importo_mensile)} / {freqLabel[c.frequenza ?? "Monthly"] ?? "mese"}
+                      {c.data_inizio && <span className="ml-2">· dal {c.data_inizio}</span>}
                     </p>
                   </div>
                 </div>
@@ -318,7 +469,7 @@ function RecurringCosts() {
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   }
-                  description={`Delete subscription "${c.nome}"?`}
+                  description={`Eliminare il costo fisso "${c.nome}"?`}
                   onConfirm={() => deleteMutation.mutate(c.id)}
                 />
               </CardContent>
@@ -327,7 +478,7 @@ function RecurringCosts() {
 
           <div className="pt-3 border-t flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
             <p className="text-sm font-medium" style={{ color: "var(--muted-text)" }}>
-              Active monthly commitment
+              Impegno mensile attivo
             </p>
             <p className="text-xl font-bold" style={{ color: "var(--accent)" }}>
               {formatEur(activeTotal)}
@@ -339,7 +490,7 @@ function RecurringCosts() {
   )
 }
 
-// ─── Project Cost Analysis ────────────────────────────────────────────────────
+// ─── Pricing / Analisi Costi Progetto ─────────────────────────────────────────
 
 function marginColor(pct: number) {
   if (pct > 30) return "#22c55e"
@@ -374,7 +525,7 @@ function CostBar({
   const pct = total > 0 ? (value / total) * 100 : 0
   return (
     <div className="flex items-center gap-2 text-xs">
-      <span className="w-28 truncate flex-shrink-0" style={{ color: "var(--muted-text)" }}>{label}</span>
+      <span className="w-36 truncate flex-shrink-0" style={{ color: "var(--muted-text)" }}>{label}</span>
       <div className="flex-1 rounded-full h-1.5 overflow-hidden" style={{ background: "var(--border)" }}>
         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
       </div>
@@ -399,11 +550,11 @@ function ProjectCostRow({ item }: { item: ProjectCostItem }) {
     Produzione: "#22c55e",
     Terminato: "#10b981",
   }
+  const quantita = item.quantita_da_produrre ?? 1
 
   return (
     <Card>
       <CardContent className="py-0">
-        {/* Header row */}
         <button
           className="w-full py-3 flex items-center justify-between gap-3 text-left"
           onClick={() => setExpanded(v => !v)}
@@ -421,20 +572,36 @@ function ProjectCostRow({ item }: { item: ProjectCostItem }) {
                 >
                   {item.stato}
                 </span>
+                {item.has_estimated_logs && (
+                  <span
+                    className="text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 flex items-center gap-1"
+                    style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}
+                    title="Alcuni log non hanno snapshot storico — costi calcolati al momento attuale"
+                  >
+                    <AlertCircle className="h-3 w-3" />
+                    Stimato
+                  </span>
+                )}
               </div>
               <p className="text-xs" style={{ color: "var(--muted-text)" }}>
                 {item.cliente || "—"}
                 <span className="mx-1">·</span>
-                {item.n_stampe} print job{item.n_stampe !== 1 ? "s" : ""}
+                {item.n_stampe} {item.n_stampe !== 1 ? "stampe" : "stampa"}
                 <span className="mx-1">·</span>
-                {item.ore_totali}h machine time
+                {item.ore_totali}h macchina
+                {quantita > 1 && (
+                  <>
+                    <span className="mx-1">·</span>
+                    {quantita} pz
+                  </>
+                )}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-4 flex-shrink-0">
             <div className="text-right">
-              <p className="text-xs" style={{ color: "var(--muted-text)" }}>Total Cost</p>
+              <p className="text-xs" style={{ color: "var(--muted-text)" }}>Costo Totale</p>
               <p className="font-bold text-sm tabular-nums" style={{ color: "var(--text)" }}>
                 {formatEur(item.costo_totale)}
               </p>
@@ -446,39 +613,59 @@ function ProjectCostRow({ item }: { item: ProjectCostItem }) {
               </p>
             </div>
             <div className="text-right w-16">
-              <p className="text-xs mb-0.5" style={{ color: "var(--muted-text)" }}>Margin</p>
+              <p className="text-xs mb-0.5" style={{ color: "var(--muted-text)" }}>Margine</p>
               <MarginIndicator pct={item.margine_perc} />
             </div>
             <span className="text-xs opacity-50">{expanded ? "▲" : "▼"}</span>
           </div>
         </button>
 
-        {/* Expanded cost breakdown */}
         {expanded && (
           <div className="pb-4 pt-1 border-t space-y-2" style={{ borderColor: "var(--border)" }}>
             <p className="text-xs font-semibold uppercase tracking-wider mb-3 mt-2" style={{ color: "var(--muted-text)" }}>
-              Cost Breakdown
+              Dettaglio Costi
             </p>
-            <CostBar label="Filament / Material" value={item.costo_materiali} total={item.costo_totale} color="#6366f1" />
-            <CostBar label="Energy consumption" value={item.costo_energia} total={item.costo_totale} color="#22d3ee" />
-            <CostBar label="Machine depreciation" value={item.costo_ammortamento} total={item.costo_totale} color="#f59e0b" />
-            <CostBar label="Post-proc. / Accessories" value={item.costo_accessori} total={item.costo_totale} color="#ec4899" />
-            <CostBar label="Progettazione" value={item.costo_progettazione} total={item.costo_totale} color="#84cc16" />
-            <CostBar label="Extra project costs" value={item.costo_extra_progetto} total={item.costo_totale} color="#f97316" />
+            <CostBar label="Materiale / Filamento" value={item.costo_materiali} total={item.costo_totale} color="#6366f1" />
+            <CostBar label="Energia" value={item.costo_energia} total={item.costo_totale} color="#22d3ee" />
+            <CostBar label="Ammortamento macchina" value={item.costo_ammortamento} total={item.costo_totale} color="#f59e0b" />
+            <CostBar label="Quota manutenzione" value={item.quota_manutenzione ?? 0} total={item.costo_totale} color="#a78bfa" />
+            <CostBar label="Overhead fissi" value={item.quota_overhead ?? 0} total={item.costo_totale} color="#64748b" />
+            <CostBar label="Allocazioni attive" value={item.quota_allocazioni ?? 0} total={item.costo_totale} color="#94a3b8" />
+            <CostBar label="Post-prod. / Accessori" value={item.costo_accessori} total={item.costo_totale} color="#ec4899" />
+            <CostBar label="Progettazione / Extra" value={item.costo_progettazione} total={item.costo_totale} color="#84cc16" />
 
-            <div
-              className="flex justify-between items-center pt-2 border-t mt-2"
-              style={{ borderColor: "var(--border)" }}
-            >
-              <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>
-                Operating Margin
-              </span>
-              <span
-                className="font-bold text-sm tabular-nums"
-                style={{ color: marginColor(item.margine_perc) }}
-              >
-                {formatEur(item.margine)} ({item.margine_perc.toFixed(1)}%)
-              </span>
+            <div className="pt-2 border-t mt-2 space-y-1.5" style={{ borderColor: "var(--border)" }}>
+              {quantita > 1 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-xs" style={{ color: "var(--muted-text)" }}>
+                    Costo unitario ({quantita} pz)
+                  </span>
+                  <span className="font-semibold text-sm tabular-nums" style={{ color: "var(--text)" }}>
+                    {formatEur(item.costo_unitario ?? 0)} / pz
+                  </span>
+                </div>
+              )}
+              {quantita > 1 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-xs" style={{ color: "var(--muted-text)" }}>
+                    Margine unitario
+                  </span>
+                  <span className="font-semibold text-sm tabular-nums" style={{ color: marginColor(item.margine_perc) }}>
+                    {formatEur(item.margine_unitario ?? 0)} / pz
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>
+                  Margine operativo
+                </span>
+                <span
+                  className="font-bold text-sm tabular-nums"
+                  style={{ color: marginColor(item.margine_perc) }}
+                >
+                  {formatEur(item.margine)} ({item.margine_perc.toFixed(1)}%)
+                </span>
+              </div>
             </div>
           </div>
         )}
@@ -487,7 +674,7 @@ function ProjectCostRow({ item }: { item: ProjectCostItem }) {
   )
 }
 
-function ProjectCostAnalysis() {
+function AnalisiCostiProgetti() {
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["project-costs"],
     queryFn: api.dashboard.projectCosts,
@@ -498,17 +685,16 @@ function ProjectCostAnalysis() {
   const totalMargin = totalBudget - totalCost
   const avgMarginPct = totalBudget > 0 ? (totalMargin / totalBudget) * 100 : 0
 
-  if (isLoading) return <p className="opacity-50 text-sm">Loading...</p>
+  if (isLoading) return <p className="opacity-50 text-sm">Caricamento...</p>
 
   return (
     <div className="space-y-4">
-      {/* Summary KPIs */}
       {items.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "Total Budget", value: formatEur(totalBudget), color: "#22c55e" },
-            { label: "Total Cost", value: formatEur(totalCost), color: "#ef4444" },
-            { label: "Aggregate Margin", value: `${formatEur(totalMargin)} (${avgMarginPct.toFixed(1)}%)`, color: marginColor(avgMarginPct) },
+            { label: "Budget Totale", value: formatEur(totalBudget), color: "#22c55e" },
+            { label: "Costo Totale", value: formatEur(totalCost), color: "#ef4444" },
+            { label: "Margine Aggregato", value: `${formatEur(totalMargin)} (${avgMarginPct.toFixed(1)}%)`, color: marginColor(avgMarginPct) },
           ].map(k => (
             <Card key={k.label}>
               <CardContent className="py-3 text-center">
@@ -521,7 +707,7 @@ function ProjectCostAnalysis() {
       )}
 
       {items.length === 0 ? (
-        <p className="opacity-50 text-sm">No projects found. Create a project and log print jobs to see cost analysis.</p>
+        <p className="opacity-50 text-sm">Nessun progetto trovato. Crea un progetto e registra stampe per vedere l'analisi costi.</p>
       ) : (
         <div className="space-y-2">
           {items.map(item => (
@@ -538,7 +724,7 @@ function ProjectCostAnalysis() {
 const SECTION_META: Record<string, { label: string; sub: string }> = {
   "spese-straordinarie": { label: "Spese straordinarie", sub: "Costi una tantum e uscite eccezionali" },
   "fissi": { label: "Costi fissi", sub: "Overhead ricorrenti e impegni periodici" },
-  "pricing": { label: "Pricing", sub: "Marginalita e breakdown costi per ordine" },
+  "pricing": { label: "Analisi Costi e Pricing", sub: "Marginalità e breakdown costi per ordine/progetto" },
 }
 
 export default function FinancialManagement() {
@@ -553,15 +739,10 @@ export default function FinancialManagement() {
   const meta = SECTION_META[segment] ?? SECTION_META["spese-straordinarie"]
 
   return (
-    <div className="max-w-3xl">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>{meta.label}</h2>
-        <p className="text-sm mt-0.5" style={{ color: "var(--muted-text)" }}>{meta.sub}</p>
-      </div>
-
-      {segment === "spese-straordinarie" && <NonRecurringExpenses />}
-      {segment === "fissi" && <RecurringCosts />}
-      {segment === "pricing" && <ProjectCostAnalysis />}
-    </div>
+    <PageLayout title={meta.label} description={meta.sub}>
+      {segment === "spese-straordinarie" && <SpeseUnaTantum />}
+      {segment === "fissi" && <CostiFissi />}
+      {segment === "pricing" && <AnalisiCostiProgetti />}
+    </PageLayout>
   )
 }

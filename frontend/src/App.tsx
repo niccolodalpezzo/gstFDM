@@ -5,8 +5,9 @@ import { motion, AnimatePresence } from "framer-motion"
 import { queryClient } from "@/lib/queryClient"
 import { api } from "@/lib/api"
 import { applyTheme } from "@/hooks/useTheme"
-import { Sidebar } from "@/components/layout/Sidebar"
+import { AppShell } from "@/components/layout/AppShell"
 import { ToastProvider } from "@/components/ui/toast"
+import "./App.css"
 
 // Lazy-load pages
 const Dashboard        = lazy(() => import("@/pages/Dashboard"))
@@ -22,6 +23,7 @@ const Fornitori        = lazy(() => import("@/pages/Fornitori"))
 const Pianificazione   = lazy(() => import("@/pages/Pianificazione"))
 const Manutenzioni     = lazy(() => import("@/pages/Manutenzioni"))
 const Azienda          = lazy(() => import("@/pages/Azienda"))
+const Preventivi       = lazy(() => import("@/pages/Preventivi"))
 
 // ─── Page skeleton loader ─────────────────────────────────────────────────────
 function PageLoader() {
@@ -126,7 +128,7 @@ function AnimatedRoutes() {
             <Route path="/stampanti/elenco" element={<Stampanti />} />
             <Route path="/stampanti/manutenzioni" element={<Manutenzioni />} />
             <Route path="/amministrazione" element={<Navigate to="/amministrazione/clienti" replace />} />
-            <Route path="/amministrazione/preventivi" element={<ComingSoon />} />
+            <Route path="/amministrazione/preventivi" element={<Preventivi />} />
             <Route path="/amministrazione/clienti" element={<Clienti />} />
             <Route path="/amministrazione/fornitori" element={<Fornitori />} />
             <Route path="/amministrazione/azienda" element={<Azienda />} />
@@ -163,15 +165,9 @@ function AppLayout() {
   return (
     <BrowserRouter>
       <ThemeInitializer />
-      <Sidebar />
-      <main
-        className="flex-1 overflow-auto"
-        style={{ minHeight: "100vh", background: "var(--bg)" }}
-      >
-        <div className="p-6 w-full">
-          <AnimatedRoutes />
-        </div>
-      </main>
+      <AppShell>
+        <AnimatedRoutes />
+      </AppShell>
     </BrowserRouter>
   )
 }

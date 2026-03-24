@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form"
 import { api } from "@/lib/api"
 import { queryClient } from "@/lib/queryClient"
 import { useToast } from "@/components/ui/toast"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -249,41 +250,46 @@ export default function PrintLog() {
   )
 
   return (
-    <div className="max-w-2xl">
-      <h2 className="text-2xl font-bold mb-6" style={{ color: "var(--text)" }}>
-        Print Log
-      </h2>
+    <PageLayout
+      title="Print Log"
+      description="Registra tempi, consumo materiale e costi accessori delle stampe completate."
+      actions={(
+        <>
+          <Button
+            onClick={() => {
+              reset(EMPTY_DEFAULTS)
+              setDialogOpen(true)
+            }}
+          >
+            + Aggiungi Log
+          </Button>
 
+          <Button
+            variant="outline"
+            disabled={importing}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {importing ? "Lettura..." : "Importa .gcode.3mf"}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".3mf"
+            className="hidden"
+            onChange={handleFileImport}
+          />
+        </>
+      )}
+      className="max-w-4xl"
+    >
       <Card>
         <CardHeader>
           <CardTitle>Aggiungi stampa</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-3">
-            <Button
-              onClick={() => {
-                reset(EMPTY_DEFAULTS)
-                setDialogOpen(true)
-              }}
-            >
-              + Aggiungi Log
-            </Button>
-
-            <Button
-              variant="outline"
-              disabled={importing}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {importing ? "Lettura..." : "Importa .gcode.3mf"}
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".3mf"
-              className="hidden"
-              onChange={handleFileImport}
-            />
-          </div>
+          <p className="text-sm leading-6" style={{ color: "var(--text-secondary)" }}>
+            Carica un file `.3mf` per precompilare tempo e materiale oppure inserisci manualmente i dati della stampa.
+          </p>
         </CardContent>
       </Card>
 
@@ -295,6 +301,6 @@ export default function PrintLog() {
           {form}
         </DialogContent>
       </Dialog>
-    </div>
+    </PageLayout>
   )
 }

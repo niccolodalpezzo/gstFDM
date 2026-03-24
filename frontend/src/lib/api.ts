@@ -17,6 +17,9 @@ import type {
   MaintenanceTemplate, MaintenanceTemplateCreate,
   PrinterMaintenanceStatus,
   ExtraordinaryMaintenance,
+  MaterialConfig, MaterialConfigCreate,
+  CostoStraordinarioStruttura, CostoStraordinarioStrutturaCreate,
+  Preventivo, PreventivoInput, PreventivoListItem, PreventivoPreview,
 } from "@/types"
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000"
@@ -242,5 +245,45 @@ export const api = {
       request<ExtraordinaryMaintenance>("/api/manutenzioni/straordinaria", { method: "POST", body: JSON.stringify(body) }),
     deleteStraordinaria: (id: number) =>
       request<void>(`/api/manutenzioni/straordinaria/${id}`, { method: "DELETE" }),
+  },
+
+  preventivi: {
+    list: () => request<PreventivoListItem[]>("/api/preventivi"),
+    get: (id: number) => request<Preventivo>(`/api/preventivi/${id}`),
+    preview: (body: PreventivoInput) =>
+      request<PreventivoPreview>("/api/preventivi/preview", { method: "POST", body: JSON.stringify(body) }),
+    create: (body: PreventivoInput) =>
+      request<Preventivo>("/api/preventivi", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: number, body: PreventivoInput) =>
+      request<Preventivo>(`/api/preventivi/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    recalculate: (id: number) =>
+      request<Preventivo>(`/api/preventivi/${id}/recalculate`, { method: "POST" }),
+    confirm: (id: number) =>
+      request<Preventivo>(`/api/preventivi/${id}/confirm`, { method: "POST" }),
+    convert: (id: number) =>
+      request<Preventivo>(`/api/preventivi/${id}/convert`, { method: "POST" }),
+    delete: (id: number) =>
+      request<void>(`/api/preventivi/${id}`, { method: "DELETE" }),
+    options: {
+      materials: () => request<BobinaFilamento[]>("/api/preventivi/options/materials"),
+      printers: () => request<Stampante[]>("/api/preventivi/options/printers"),
+      clients: () => request<Cliente[]>("/api/preventivi/options/clients"),
+    },
+    materialConfigs: {
+      list: () => request<MaterialConfig[]>("/api/preventivi/config/materiali"),
+      upsert: (body: MaterialConfigCreate) =>
+        request<MaterialConfig>("/api/preventivi/config/materiali", { method: "PUT", body: JSON.stringify(body) }),
+      delete: (id: number) =>
+        request<void>(`/api/preventivi/config/materiali/${id}`, { method: "DELETE" }),
+    },
+    structureCosts: {
+      list: () => request<CostoStraordinarioStruttura[]>("/api/preventivi/costi-struttura"),
+      create: (body: CostoStraordinarioStrutturaCreate) =>
+        request<CostoStraordinarioStruttura>("/api/preventivi/costi-struttura", { method: "POST", body: JSON.stringify(body) }),
+      update: (id: number, body: CostoStraordinarioStrutturaCreate) =>
+        request<CostoStraordinarioStruttura>(`/api/preventivi/costi-struttura/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+      delete: (id: number) =>
+        request<void>(`/api/preventivi/costi-struttura/${id}`, { method: "DELETE" }),
+    },
   },
 }

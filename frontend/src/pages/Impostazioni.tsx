@@ -6,11 +6,12 @@ import { api } from "@/lib/api"
 import { queryClient } from "@/lib/queryClient"
 import { applyTheme } from "@/hooks/useTheme"
 import { useToast } from "@/components/ui/toast"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import type { Settings, TareOverride, MaterialDensityRatio, MaintenanceTemplate, MaintenanceTemplateCreate } from "@/types"
+import type { Settings, TareOverride, MaterialDensityRatio, MaintenanceTemplate, MaintenanceTemplateCreate, MaterialConfigCreate } from "@/types"
 import { FILAMENT_DB, BRAND_NAMES } from "@/data/filament-data"
 import { Plus, Trash2, Wrench } from "lucide-react"
 
@@ -23,35 +24,55 @@ function CostParameters() {
   useEffect(() => { if (settings) reset(settings) }, [settings, reset])
   const mutation = useMutation({
     mutationFn: api.settings.update,
-    onSuccess: (data) => { queryClient.setQueryData(["settings"], data); applyTheme(data); toast("Settings saved", "success") },
+    onSuccess: (data) => { queryClient.setQueryData(["settings"], data); applyTheme(data); toast("Impostazioni salvate", "success") },
     onError: () => toast("Errore nel salvataggio", "error"),
   })
-  if (isLoading) return <p className="opacity-50">Loading...</p>
+  if (isLoading) return <p className="opacity-50">Caricamento...</p>
   return (
     <Card>
-      <CardHeader><CardTitle>Cost Parameters</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>Parametri economici</CardTitle>
+      </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(data => mutation.mutate({ ...settings!, ...data }))} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>kWh cost (€)</Label>
-            <Input type="number" step="0.001" min="0" {...register("costo_kwh", { valueAsNumber: true })} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Operator hourly rate (€/h)</Label>
-            <Input type="number" step="0.5" min="0" {...register("costo_orario_post_prod", { valueAsNumber: true })} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Monthly farm working hours</Label>
-            <Input type="number" step="1" min="1" {...register("ore_lavorative_mensili_farm", { valueAsNumber: true })} />
-            <p className="text-xs" style={{ color: "var(--muted-text)" }}>Used to allocate monthly fixed costs across individual projects</p>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Maintenance interval (hours)</Label>
-            <Input type="number" step="1" min="1" {...register("maintenance_interval_hours", { valueAsNumber: true })} />
-            <p className="text-xs" style={{ color: "var(--muted-text)" }}>Default interval used by Stampanti when a printer does not define an override.</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Costo energia €/kWh</Label>
+              <Input type="number" step="0.001" min="0" {...register("costo_kwh", { valueAsNumber: true })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Costo orario post-produzione</Label>
+              <Input type="number" step="0.5" min="0" {...register("costo_orario_post_prod", { valueAsNumber: true })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Costo orario manodopera</Label>
+              <Input type="number" step="0.5" min="0" {...register("costo_orario_manodopera", { valueAsNumber: true })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Costo orario progettazione</Label>
+              <Input type="number" step="0.5" min="0" {...register("costo_orario_progettazione_default", { valueAsNumber: true })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Margine lordo default %</Label>
+              <Input type="number" step="0.1" min="0" {...register("margine_lordo_default_perc", { valueAsNumber: true })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Criterio rischio default</Label>
+              <Input {...register("criterio_rischio_default")} placeholder="standard" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Ore lavorative mensili farm</Label>
+              <Input type="number" step="1" min="1" {...register("ore_lavorative_mensili_farm", { valueAsNumber: true })} />
+              <p className="text-xs" style={{ color: "var(--muted-text)" }}>Usate per ripartire i costi fissi orari sul cost engine.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Intervallo manutenzione default (ore)</Label>
+              <Input type="number" step="1" min="1" {...register("maintenance_interval_hours", { valueAsNumber: true })} />
+              <p className="text-xs" style={{ color: "var(--muted-text)" }}>Applicato alle stampanti che non hanno un override dedicato.</p>
+            </div>
           </div>
           <Button type="submit" disabled={mutation.isPending} className="w-full">
-            {mutation.isPending ? "Saving..." : "Save Settings"}
+            {mutation.isPending ? "Salvataggio..." : "Salva impostazioni"}
           </Button>
         </form>
       </CardContent>
@@ -71,7 +92,7 @@ function MaintenanceTemplatesSection() {
   const [editing, setEditing] = useState<MaintenanceTemplate | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<MaintenanceTemplateCreate>({
-    nome: "", descrizione: "", soglia_ore_massima: 200, ordine: 0, attiva: true,
+    nome: "", descrizione: "", soglia_ore_massima: 200, ordine_visualizzazione: 0, attiva: true, costo_standard_intervento: 0,
   })
 
   const createMutation = useMutation({
@@ -80,7 +101,7 @@ function MaintenanceTemplatesSection() {
       queryClient.invalidateQueries({ queryKey: ["maintenance-templates"] })
       toast("Template creato", "success")
       setShowForm(false)
-      setForm({ nome: "", descrizione: "", soglia_ore_massima: 200, ordine: 0, attiva: true })
+      setForm({ nome: "", descrizione: "", soglia_ore_massima: 200, ordine_visualizzazione: 0, attiva: true, costo_standard_intervento: 0 })
     },
     onError: (e: Error) => toast(e.message, "error"),
   })
@@ -107,7 +128,7 @@ function MaintenanceTemplatesSection() {
 
   function openEdit(t: MaintenanceTemplate) {
     setEditing(t)
-    setForm({ nome: t.nome, descrizione: t.descrizione, soglia_ore_massima: t.soglia_ore_massima, ordine: t.ordine, attiva: t.attiva })
+    setForm({ nome: t.nome, descrizione: t.descrizione, soglia_ore_massima: t.soglia_ore_massima, ordine_visualizzazione: t.ordine_visualizzazione, attiva: t.attiva, costo_standard_intervento: t.costo_standard_intervento })
   }
 
   return (
@@ -148,10 +169,14 @@ function MaintenanceTemplatesSection() {
               <Label>Descrizione</Label>
               <Input value={form.descrizione} onChange={e => setForm(f => ({ ...f, descrizione: e.target.value }))} placeholder="Procedura consigliata..." />
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="space-y-1">
                 <Label>Ordine</Label>
-                <Input type="number" min={0} className="w-20" value={form.ordine} onChange={e => setForm(f => ({ ...f, ordine: Number(e.target.value) }))} />
+                <Input type="number" min={0} className="w-20" value={form.ordine_visualizzazione} onChange={e => setForm(f => ({ ...f, ordine_visualizzazione: Number(e.target.value) }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Costo standard (€)</Label>
+                <Input type="number" min={0} step="0.01" className="w-28" value={form.costo_standard_intervento} onChange={e => setForm(f => ({ ...f, costo_standard_intervento: Number(e.target.value) }))} />
               </div>
               <label className="flex items-center gap-2 mt-5 cursor-pointer">
                 <input
@@ -191,7 +216,7 @@ function MaintenanceTemplatesSection() {
           </div>
         ) : (
           <div className="divide-y rounded-xl overflow-hidden border" style={{ borderColor: "var(--card-border)" }}>
-            {[...templates].sort((a, b) => a.ordine - b.ordine).map(t => (
+            {[...templates].sort((a, b) => a.ordine_visualizzazione - b.ordine_visualizzazione).map(t => (
               <div
                 key={t.id}
                 className="flex items-center justify-between px-4 py-3 gap-3"
@@ -316,6 +341,113 @@ function DensityRatioSection() {
   )
 }
 
+// ─── Configurazione Materiali Preventivi ─────────────────────────────────────
+
+function QuoteMaterialConfigSection() {
+  const toast = useToast()
+  const { data: configs = [] } = useQuery({
+    queryKey: ["preventivi-material-configs"],
+    queryFn: api.preventivi.materialConfigs.list,
+  })
+
+  const [newConfig, setNewConfig] = useState<MaterialConfigCreate>({
+    materiale: "",
+    marca: "",
+    scarto_predefinito_perc: 0,
+    energy_multiplier: 1,
+    risk_perc_base: 0,
+    note: "",
+  })
+
+  const upsertMutation = useMutation({
+    mutationFn: api.preventivi.materialConfigs.upsert,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["preventivi-material-configs"] })
+      toast("Configurazione materiale salvata", "success")
+      setNewConfig({ materiale: "", marca: "", scarto_predefinito_perc: 0, energy_multiplier: 1, risk_perc_base: 0, note: "" })
+    },
+    onError: error => toast(error instanceof Error ? error.message : "Errore nel salvataggio", "error"),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: api.preventivi.materialConfigs.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["preventivi-material-configs"] })
+      toast("Configurazione materiale eliminata", "success")
+    },
+    onError: error => toast(error instanceof Error ? error.message : "Errore nell'eliminazione", "error"),
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Configurazione materiali per preventivi</CardTitle>
+        <p className="text-xs mt-1" style={{ color: "var(--muted-text)" }}>
+          Scarto predefinito, moltiplicatore energia e rischio base usati dal cost engine preventivi.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: "var(--card-border)" }}>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="space-y-1">
+              <Label>Materiale</Label>
+              <Input value={newConfig.materiale} onChange={event => setNewConfig(current => ({ ...current, materiale: event.target.value }))} placeholder="PLA, PETG, ABS..." />
+            </div>
+            <div className="space-y-1">
+              <Label>Marca</Label>
+              <Input value={newConfig.marca} onChange={event => setNewConfig(current => ({ ...current, marca: event.target.value }))} placeholder="Vuoto = regola generica" />
+            </div>
+            <div className="space-y-1">
+              <Label>Scarto predefinito %</Label>
+              <Input type="number" min="0" step="0.1" value={newConfig.scarto_predefinito_perc} onChange={event => setNewConfig(current => ({ ...current, scarto_predefinito_perc: Number(event.target.value) }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>Moltiplicatore energia</Label>
+              <Input type="number" min="0" step="0.01" value={newConfig.energy_multiplier} onChange={event => setNewConfig(current => ({ ...current, energy_multiplier: Number(event.target.value) }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>Rischio base %</Label>
+              <Input type="number" min="0" step="0.1" value={newConfig.risk_perc_base} onChange={event => setNewConfig(current => ({ ...current, risk_perc_base: Number(event.target.value) }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>Note</Label>
+              <Input value={newConfig.note} onChange={event => setNewConfig(current => ({ ...current, note: event.target.value }))} placeholder="Uso tecnico, camera calda, supporti..." />
+            </div>
+          </div>
+          <Button onClick={() => upsertMutation.mutate(newConfig)} disabled={!newConfig.materiale.trim() || upsertMutation.isPending}>
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Salva configurazione
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          {configs.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--muted-text)" }}>Nessuna configurazione materiale registrata.</p>
+          ) : (
+            configs.map(config => (
+              <div key={config.id} className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3" style={{ borderColor: "var(--card-border)" }}>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                    {config.materiale}
+                    {config.marca ? ` · ${config.marca}` : " · Generica"}
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--muted-text)" }}>
+                    Scarto {config.scarto_predefinito_perc}% · Energia x{config.energy_multiplier.toFixed(2)} · Rischio {config.risk_perc_base}%
+                    {config.note ? ` · ${config.note}` : ""}
+                  </p>
+                </div>
+                <Button variant="ghost" size="icon-sm" onClick={() => deleteMutation.mutate(config.id)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 // ─── Tare Configuration Section ───────────────────────────────────────────────
 
 function TareConfigSection() {
@@ -325,21 +457,21 @@ function TareConfigSection() {
   const [edits, setEdits] = useState<Record<string, string>>({})
   const upsertMutation = useMutation({
     mutationFn: (body: TareOverride) => api.tareOverrides.upsert(body),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["tare-overrides"] }); toast("Tare override saved", "success") },
-    onError: () => toast("Error saving override", "error"),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["tare-overrides"] }); toast("Tara salvata", "success") },
+    onError: () => toast("Errore nel salvataggio", "error"),
   })
   const deleteMutation = useMutation({
     mutationFn: ({ marca, materiale }: { marca: string; materiale: string }) => api.tareOverrides.delete(marca, materiale),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["tare-overrides"] }); toast("Override reset to default", "success") },
-    onError: () => toast("Error", "error"),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["tare-overrides"] }); toast("Tara ripristinata", "success") },
+    onError: () => toast("Errore", "error"),
   })
   const thCls = "text-left text-xs font-semibold uppercase tracking-wider py-2 px-3"
   const tdCls = "py-2 px-3 text-sm"
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Filament Tare Configuration</CardTitle>
-        <p className="text-xs mt-1" style={{ color: "var(--muted-text)" }}>Override empty spool weights per brand/material. Used to compute Net Remaining from the Gross Weight read on a scale.</p>
+        <CardTitle>Configurazione tare bobine</CardTitle>
+        <p className="text-xs mt-1" style={{ color: "var(--muted-text)" }}>Override del peso a vuoto per marca/materiale. Serve a calcolare il netto residuo dal peso lordo letto sulla bilancia.</p>
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-hidden" style={{ borderTop: "1px solid var(--card-border)" }}>
@@ -347,11 +479,11 @@ function TareConfigSection() {
             <table className="w-full">
               <thead style={{ background: "color-mix(in srgb, var(--accent) 5%, transparent)", position: "sticky", top: 0, zIndex: 1 }}>
                 <tr style={{ borderBottom: "1px solid var(--card-border)" }}>
-                  <th className={thCls} style={{ color: "var(--muted-text)" }}>Brand</th>
-                  <th className={thCls} style={{ color: "var(--muted-text)" }}>Material</th>
-                  <th className={thCls} style={{ color: "var(--muted-text)" }}>Spool Type</th>
+                  <th className={thCls} style={{ color: "var(--muted-text)" }}>Marca</th>
+                  <th className={thCls} style={{ color: "var(--muted-text)" }}>Materiale</th>
+                  <th className={thCls} style={{ color: "var(--muted-text)" }}>Tipo bobina</th>
                   <th className={thCls} style={{ color: "var(--muted-text)" }}>Default (g)</th>
-                  <th className={thCls} style={{ color: "var(--muted-text)" }}>Custom Tare (g)</th>
+                  <th className={thCls} style={{ color: "var(--muted-text)" }}>Tara custom (g)</th>
                   <th className={thCls} />
                 </tr>
               </thead>
@@ -373,7 +505,7 @@ function TareConfigSection() {
                         <td className={tdCls}>
                           <div className="flex items-center gap-1">
                             {editVal !== undefined && editVal !== "" && (
-                              <Button size="sm" variant="ghost" onClick={() => { upsertMutation.mutate({ marca: brand, materiale: material, tare_g: Number(editVal) }); setEdits(p => { const n = { ...p }; delete n[key]; return n }) }}>Save</Button>
+                              <Button size="sm" variant="ghost" onClick={() => { upsertMutation.mutate({ marca: brand, materiale: material, tare_g: Number(editVal) }); setEdits(p => { const n = { ...p }; delete n[key]; return n }) }}>Salva</Button>
                             )}
                             {hasOverride && (
                               <Button size="sm" variant="ghost" onClick={() => { deleteMutation.mutate({ marca: brand, materiale: material }); setEdits(p => { const n = { ...p }; delete n[key]; return n }) }}>Reset</Button>
@@ -416,46 +548,45 @@ export default function Impostazioni() {
   }, [hash])
 
   return (
-    <div className="flex gap-6">
-      {/* Sticky nav */}
-      <nav className="hidden lg:flex flex-col gap-1 w-44 shrink-0 pt-1 self-start sticky top-6">
-        {SECTIONS.map(s => (
-          <a
-            key={s.id}
-            href={`#${s.id}`}
-            className="px-3 py-2 rounded-lg text-sm transition-colors hover:bg-[var(--muted-bg)]"
-            style={{ color: hash === `#${s.id}` ? "var(--accent)" : "var(--muted-text)", fontWeight: hash === `#${s.id}` ? 600 : 400 }}
-          >
-            {s.label}
-          </a>
-        ))}
-      </nav>
+    <PageLayout
+      title="Impostazioni"
+      description="Configurazione globale della farm, parametri cost engine, manutenzioni e tabelle materiali."
+    >
+      <div className="flex gap-6">
+        <nav className="hidden lg:flex flex-col gap-1 w-52 shrink-0 pt-1 self-start sticky top-6">
+          {SECTIONS.map(s => (
+            <a
+              key={s.id}
+              href={`#${s.id}`}
+              className="px-3 py-2.5 rounded-xl text-sm transition-colors hover:bg-[var(--hover-bg)]"
+              style={{ color: hash === `#${s.id}` ? "var(--accent)" : "var(--muted-text)", fontWeight: hash === `#${s.id}` ? 600 : 500 }}
+            >
+              {s.label}
+            </a>
+          ))}
+        </nav>
 
-      {/* Content */}
-      <div className="flex-1 max-w-2xl space-y-10">
-        <div>
-          <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Impostazioni</h2>
-          <p className="text-sm mt-1" style={{ color: "var(--muted-text)" }}>Configurazione globale della farm</p>
+        <div className="flex-1 max-w-3xl space-y-10">
+          <section ref={el => { sectionRefs.current["generali"] = el }} id="generali">
+            <h3 className="text-base font-semibold mb-3" style={{ color: "var(--text)" }}>Generali</h3>
+            <CostParameters />
+          </section>
+
+          <section ref={el => { sectionRefs.current["manutenzioni-ordinarie"] = el }} id="manutenzioni-ordinarie">
+            <h3 className="text-base font-semibold mb-3" style={{ color: "var(--text)" }}>Manutenzioni ordinarie</h3>
+            <MaintenanceTemplatesSection />
+          </section>
+
+          <section ref={el => { sectionRefs.current["filamenti"] = el }} id="filamenti">
+            <h3 className="text-base font-semibold mb-3" style={{ color: "var(--text)" }}>Filamenti</h3>
+            <div className="space-y-4">
+              <DensityRatioSection />
+              <QuoteMaterialConfigSection />
+              <TareConfigSection />
+            </div>
+          </section>
         </div>
-
-        <section ref={el => { sectionRefs.current["generali"] = el }} id="generali">
-          <h3 className="text-base font-semibold mb-3" style={{ color: "var(--text)" }}>Generali</h3>
-          <CostParameters />
-        </section>
-
-        <section ref={el => { sectionRefs.current["manutenzioni-ordinarie"] = el }} id="manutenzioni-ordinarie">
-          <h3 className="text-base font-semibold mb-3" style={{ color: "var(--text)" }}>Manutenzioni ordinarie</h3>
-          <MaintenanceTemplatesSection />
-        </section>
-
-        <section ref={el => { sectionRefs.current["filamenti"] = el }} id="filamenti">
-          <h3 className="text-base font-semibold mb-3" style={{ color: "var(--text)" }}>Filamenti</h3>
-          <div className="space-y-4">
-            <DensityRatioSection />
-            <TareConfigSection />
-          </div>
-        </section>
       </div>
-    </div>
+    </PageLayout>
   )
 }

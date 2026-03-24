@@ -50,6 +50,13 @@ export interface Stampante {
   consumo_w: number
   costo_acquisto: number
   ammortamento_orario: number
+  // ammortamento finito (optional per backward compat)
+  ammortamento_attivo?: boolean
+  ammortamento_residuo_euro?: number | null
+  ammortamento_recuperato_euro?: number
+  ammortamento_quota_oraria?: number | null
+  ammortamento_modalita?: string
+  risk_perc_base?: number
   build_volume_x: number
   build_volume_y: number
   build_volume_z: number
@@ -182,6 +189,8 @@ export interface LogStampa {
   materiale?: string
   colore?: string
   codice_univoco?: string
+  snapshot_costo_totale_log?: number | null
+  snapshot_data_calcolo?: string | null
 }
 
 export interface LogStampaCreate {
@@ -199,6 +208,10 @@ export interface LogStampaCreate {
 export interface Settings {
   costo_kwh: number
   costo_orario_post_prod: number
+  costo_orario_manodopera: number
+  margine_lordo_default_perc: number
+  costo_orario_progettazione_default: number
+  criterio_rischio_default: string
   ore_lavorative_mensili_farm: number
   maintenance_interval_hours: number
   theme_mode: "Scuro" | "Chiaro"
@@ -263,6 +276,14 @@ export interface ProjectCostItem {
   margine_perc: number
   ore_totali: number
   n_stampe: number
+  // nuovi campi cost_engine (optional per backward compat)
+  quota_manutenzione?: number
+  quota_overhead?: number
+  quota_allocazioni?: number
+  quantita_da_produrre?: number
+  costo_unitario?: number
+  margine_unitario?: number
+  has_estimated_logs?: boolean
 }
 
 // ─── COMPONENT REPLACEMENTS ───────────────────────────────────────────────────
@@ -391,6 +412,11 @@ export interface MarginiCalcolati {
   margine_assoluto: number
   margine_perc: number
   ore_totali: number
+  // nuovi campi cost_engine (optional per backward compat)
+  costo_unitario?: number
+  margine_unitario?: number
+  quota_manutenzione?: number
+  has_estimated_logs?: boolean
 }
 
 export interface ProgettoCardData {
@@ -467,8 +493,9 @@ export interface MaintenanceTemplate {
   nome: string
   descrizione: string
   soglia_ore_massima: number
-  ordine: number
+  ordine_visualizzazione: number
   attiva: boolean
+  costo_standard_intervento: number
 }
 
 export type MaintenanceTemplateCreate = Omit<MaintenanceTemplate, "id">
@@ -516,4 +543,192 @@ export interface ExtraordinaryMaintenance {
   quota_oraria_ricambi: number
   ore_residue_da_spalmare: number | null
   spalmatura_attiva: boolean
+}
+
+// ─── PREVENTIVI ───────────────────────────────────────────────────────────────
+
+export const PREVENTIVO_STATI = ["bozza", "confermato", "annullato", "convertito"] as const
+export type PreventivoStato = (typeof PREVENTIVO_STATI)[number]
+
+export interface MaterialConfig {
+  id: number
+  materiale: string
+  marca: string
+  scarto_predefinito_perc: number
+  energy_multiplier: number
+  risk_perc_base: number
+  note: string
+  created_at: string | null
+  updated_at: string | null
+}
+
+export type MaterialConfigCreate = Omit<MaterialConfig, "id" | "created_at" | "updated_at">
+
+export interface CostoStraordinarioStruttura {
+  id: number
+  descrizione: string
+  importo_totale: number
+  importo_residuo: number
+  quota_oraria: number
+  ore_da_spalmare_totali: number | null
+  ore_da_spalmare_residue: number | null
+  attivo: boolean
+  data: string
+  note: string
+  created_at: string | null
+  updated_at: string | null
+}
+
+export type CostoStraordinarioStrutturaCreate = Omit<CostoStraordinarioStruttura, "id" | "created_at" | "updated_at">
+
+export interface PreventivoMaterialeInput {
+  magazzino_id: number | null
+  materiale_nome: string
+  marca: string
+  colore: string
+  costo_kg: number | null
+  grammi_modello: number
+  scarto_perc: number | null
+  energy_multiplier: number | null
+  risk_perc: number | null
+}
+
+export interface PreventivoMateriale {
+  id: number
+  preventivo_id: number
+  magazzino_id: number | null
+  materiale_nome_snapshot: string
+  marca_snapshot: string
+  colore_snapshot: string
+  costo_kg_snapshot: number
+  grammi_modello: number
+  scarto_perc: number
+  grammi_totali: number
+  energy_multiplier_snapshot: number
+  risk_perc_snapshot: number
+  costo_totale: number
+}
+
+export interface PreventivoPostProduzioneInput {
+  descrizione: string
+  minuti: number | null
+  costo_manual: number | null
+}
+
+export interface PreventivoPostProduzione {
+  id: number
+  preventivo_id: number
+  descrizione: string
+  minuti: number | null
+  costo_manual: number | null
+  costo_totale: number
+}
+
+export interface PreventivoComponenteExtraInput {
+  descrizione: string
+  quantita: number
+  costo_unitario: number
+}
+
+export interface PreventivoComponenteExtra {
+  id: number
+  preventivo_id: number
+  descrizione: string
+  quantita: number
+  costo_unitario: number
+  costo_totale: number
+}
+
+export interface PreventivoBreakdown {
+  costo_materiali: number
+  costo_energia: number
+  costo_setup: number
+  costo_post_produzione: number
+  costo_componenti_extra: number
+  costo_packing: number
+  costo_spedizione: number
+  costo_costi_fissi: number
+  costo_manutenzione_ordinaria: number
+  costo_manutenzione_straordinaria: number
+  costo_ammortamento: number
+  costo_straordinari_struttura: number
+  costo_progettazione: number
+  costo_rischio: number
+  costo_extra_manual: number
+  costo_pieno: number
+  prezzo_finale: number
+  utile_lordo: number
+  margine_lordo_perc: number
+  energy_multiplier_eff: number
+  rischio_totale_perc: number
+  quota_costi_fissi_oraria: number
+  quota_manutenzione_ordinaria_oraria: number
+  quota_manutenzione_straordinaria_oraria: number
+  quota_straordinari_struttura_oraria: number
+  quota_ammortamento_oraria: number
+  warning: string | null
+}
+
+export interface PreventivoInput {
+  numero_preventivo?: string | null
+  data: string
+  cliente_id: number | null
+  cliente_nome_snapshot: string
+  progetto_nome: string
+  stampante_id: number
+  stato: PreventivoStato
+  quantita: number
+  ore_stampa: number
+  minuti_setup: number
+  costo_progettazione: number
+  costo_packing: number
+  costo_spedizione: number
+  costo_extra_manual: number
+  margine_lordo_perc: number
+  override_rischio_perc: number | null
+  note: string
+  materiali: PreventivoMaterialeInput[]
+  post_produzione: PreventivoPostProduzioneInput[]
+  componenti_extra: PreventivoComponenteExtraInput[]
+}
+
+export interface PreventivoListItem {
+  id: number
+  numero_preventivo: string
+  data: string
+  cliente_id: number | null
+  cliente_nome_snapshot: string
+  progetto_nome: string
+  stampante_id: number
+  stampante_nome_snapshot: string
+  stato: PreventivoStato
+  quantita: number
+  costo_pieno: number
+  prezzo_finale: number
+  utile_lordo: number
+  margine_lordo_perc: number
+  updated_at: string | null
+}
+
+export interface Preventivo extends PreventivoListItem {
+  ore_stampa: number
+  minuti_setup: number
+  costo_progettazione: number
+  costo_packing: number
+  costo_spedizione: number
+  costo_extra_manual: number
+  override_rischio_perc: number | null
+  note: string
+  snapshot_json: string
+  materiali: PreventivoMateriale[]
+  post_produzione: PreventivoPostProduzione[]
+  componenti_extra: PreventivoComponenteExtra[]
+  breakdown: PreventivoBreakdown
+}
+
+export interface PreventivoPreview {
+  breakdown: PreventivoBreakdown
+  materiali: PreventivoMateriale[]
+  post_produzione: PreventivoPostProduzione[]
+  componenti_extra: PreventivoComponenteExtra[]
 }

@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form"
 import { api } from "@/lib/api"
 import { queryClient } from "@/lib/queryClient"
 import { useToast } from "@/components/ui/toast"
+import { EmptyState, PageLayout, StatCard } from "@/components/layout/PageLayout"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
-import { Pencil, Trash2, Plus, Search } from "lucide-react"
+import { Building2, Pencil, Search, Trash2, Plus, Users } from "lucide-react"
 import type { Cliente, ClienteCreate } from "@/types"
 
 function ClienteForm({
@@ -93,8 +94,8 @@ function ClienteForm({
         <Textarea {...register("note")} className="h-20" />
       </div>
 
-      <Button type="submit" disabled={isPending} className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-md">
-        {isPending ? "Savng..." : "Salva cliente"}
+      <Button type="submit" disabled={isPending} className="w-full">
+        {isPending ? "Salvataggio..." : "Salva cliente"}
       </Button>
     </form>
   )
@@ -120,15 +121,16 @@ export default function Clienti() {
       (c.p_iva || "").toLowerCase().includes(searchTerm.toLowerCase())
     )
   }, [clienti, searchTerm])
+  const businessClients = clienti.filter(cliente => cliente.azienda).length
 
   const createMutation = useMutation({
     mutationFn: api.clienti.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clienti"] })
       setAddOpen(false)
-      toast("Customer created", "success")
+      toast("Cliente creato", "success")
     },
-    onError: () => toast("Error creating customer", "error"),
+    onError: () => toast("Errore nella creazione cliente", "error"),
   })
 
   const updateMutation = useMutation({
@@ -137,9 +139,9 @@ export default function Clienti() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clienti"] })
       setEditTarget(null)
-      toast("Customer updated", "success")
+      toast("Cliente aggiornato", "success")
     },
-    onError: () => toast("Error updating customer", "error"),
+    onError: () => toast("Errore nell'aggiornamento cliente", "error"),
   })
 
   const deleteMutation = useMutation({
@@ -147,27 +149,25 @@ export default function Clienti() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clienti"] })
       queryClient.invalidateQueries({ queryKey: ["progetti"] }) // Projects might relate directly
-      toast("Customer deleted", "success")
+      toast("Cliente eliminato", "success")
     },
-    onError: () => toast("Error deleting customer", "error"),
+    onError: () => toast("Errore nell'eliminazione cliente", "error"),
   })
 
-  if (isLoading) return <p className="opacity-50">Loading...</p>
+  if (isLoading) return <p className="opacity-50">Caricamento...</p>
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
-          Customers (CRM)
-        </h2>
-        
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground opacity-50" />
+    <PageLayout
+      title="Clienti"
+      description="Anagrafica clienti, dati fiscali e ricerca rapida in ottica CRM operativo."
+      actions={(
+        <div className="toolbar-surface__group">
+          <div className="search-shell">
+            <Search className="h-4 w-4" />
             <Input
               type="search"
-              placeholder="Search customers..."
-              className="pl-9 w-64 rounded-full bg-black/20"
+              placeholder="Cerca cliente..."
+              className="w-72"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -175,13 +175,13 @@ export default function Clienti() {
 
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white rounded-md">
-                <Plus className="h-4 w-4 mr-1" /> Nuovo Cliente
+              <Button>
+                <Plus className="h-4 w-4" /> Nuovo cliente
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>New Customer</DialogTitle>
+                <DialogTitle>Nuovo cliente</DialogTitle>
               </DialogHeader>
               <ClienteForm
                 defaultValues={{ nome: "", cognome: "" }}
@@ -191,12 +191,26 @@ export default function Clienti() {
             </DialogContent>
           </Dialog>
         </div>
+      )}
+    >
+      <div className="stat-grid">
+        <StatCard label="Clienti totali" value={clienti.length} icon={<Users className="h-4 w-4" />} />
+        <StatCard label="Aziende censite" value={businessClients} icon={<Building2 className="h-4 w-4" />} color="var(--accent)" />
       </div>
 
       {filteredClienti.length === 0 ? (
-        <p className="opacity-50 mt-12 text-center">No customers found.</p>
+        <EmptyState
+          icon={<Users className="h-7 w-7" />}
+          title="Nessun cliente trovato"
+          description="Affina la ricerca oppure crea un nuovo record cliente."
+          action={(
+            <Button onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4" /> Nuovo cliente
+            </Button>
+          )}
+        />
       ) : (
-        <div className="grid gap-3">
+        <div className="list-stack">
           {filteredClienti.map(c => (
             <Card key={c.id}>
               <CardContent className="py-4 flex items-center justify-between">
@@ -204,7 +218,7 @@ export default function Clienti() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium truncate">{c.nome} {c.cognome}</p>
                     {c.azienda && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                      <span className="text-xs px-2 py-1 rounded-full border" style={{ background: "var(--accent-subtle)", color: "var(--accent)", borderColor: "color-mix(in srgb, var(--accent) 18%, transparent)" }}>
                         {c.azienda}
                       </span>
                     )}
@@ -222,7 +236,7 @@ export default function Clienti() {
                     </DialogTrigger>
                     <DialogContent className="max-w-md">
                       <DialogHeader>
-                        <DialogTitle>Edit Customer</DialogTitle>
+                        <DialogTitle>Modifica cliente</DialogTitle>
                       </DialogHeader>
                       {editTarget && (
                         <ClienteForm
@@ -239,7 +253,7 @@ export default function Clienti() {
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     }
-                    description={`Delete customer "${c.nome} ${c.cognome}"? Associated projects will retain their string reference but lose ID linking.`}
+                    description={`Eliminare il cliente "${c.nome} ${c.cognome}"? I progetti manterranno il riferimento testuale ma perderanno il collegamento ID.`}
                     onConfirm={() => deleteMutation.mutate(c.id)}
                   />
                 </div>
@@ -248,6 +262,6 @@ export default function Clienti() {
           ))}
         </div>
       )}
-    </div>
+    </PageLayout>
   )
 }

@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form"
 import { AlertTriangle, Box, Clock, Cpu, Layers3, Plus, Printer, Settings, Trash2, Wifi, WifiOff, Wrench, Zap } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -293,16 +294,44 @@ function PrinterCard({ printer, components, onUpdate, onDelete, isPending }: { p
         {/* Live network status */}
         <LiveStatusSection ls={liveStatus ?? null} host={printer.network_host} />
 
-        <div className="rounded-lg px-3 py-2" style={{ background: "color-mix(in srgb, var(--accent) 4%, transparent)", border: "1px solid var(--card-border)" }}><div className="flex items-center justify-between text-xs"><div className="flex items-center gap-1" style={{ color: "var(--muted-text)" }}><Clock className="h-3 w-3" /><span className="font-medium uppercase tracking-wider">Accumulated Runtime</span></div><span className="font-bold tabular-nums" style={{ color: "var(--accent)" }}>{printer.accumulated_runtime_hours.toFixed(1)}h</span></div></div>
+        <div className="rounded-lg px-3 py-2" style={{ background: "color-mix(in srgb, var(--accent) 4%, transparent)", border: "1px solid var(--card-border)" }}><div className="flex items-center justify-between text-xs"><div className="flex items-center gap-1" style={{ color: "var(--muted-text)" }}><Clock className="h-3 w-3" /><span className="font-medium uppercase tracking-wider">Ore accumulate</span></div><span className="font-bold tabular-nums" style={{ color: "var(--accent)" }}>{printer.accumulated_runtime_hours.toFixed(1)}h</span></div></div>
+
+        {/* Ammortamento */}
+        {(printer.costo_acquisto ?? 0) > 0 && (() => {
+          const recuperato = printer.ammortamento_recuperato_euro ?? 0
+          const totale = printer.costo_acquisto ?? 0
+          const pct = totale > 0 ? Math.min(100, (recuperato / totale) * 100) : 0
+          const attivo = printer.ammortamento_attivo !== false
+          const residuo = printer.ammortamento_residuo_euro ?? totale
+          const color = !attivo ? "#22c55e" : "var(--accent)"
+          return (
+            <div className="rounded-lg px-3 py-2 space-y-1.5" style={{ background: "color-mix(in srgb, var(--accent) 4%, transparent)", border: "1px solid var(--card-border)" }}>
+              <div className="flex items-center justify-between text-xs">
+                <span style={{ color: "var(--muted-text)" }}>Ammortamento</span>
+                <span className="font-bold tabular-nums" style={{ color }}>
+                  {!attivo ? "Recuperato ✓" : `€${residuo.toFixed(0)} residui`}
+                </span>
+              </div>
+              <div className="w-full rounded-full h-1.5" style={{ background: "var(--border)" }}>
+                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+              </div>
+              <div className="flex justify-between text-xs" style={{ color: "var(--muted-text)" }}>
+                <span>Recuperato {pct.toFixed(0)}%</span>
+                <span>su €{totale.toFixed(0)}</span>
+              </div>
+            </div>
+          )
+        })()}
+
         <div className="space-y-1 text-xs" style={{ color: "var(--muted-text)" }}>
           {(printer.build_volume_x ?? 0) > 0 && <div className="flex items-center gap-1.5"><Box className="h-3 w-3 flex-shrink-0" /><span>{printer.build_volume_x}x{printer.build_volume_y}x{printer.build_volume_z} mm</span></div>}
           {printer.active_nozzle_uid && <div className="flex items-center gap-1.5"><Cpu className="h-3 w-3 flex-shrink-0" /><span className="truncate">{printer.active_nozzle_uid} - {printer.active_nozzle_name}</span></div>}
           {printer.active_plate_uid && <div className="flex items-center gap-1.5"><Box className="h-3 w-3 flex-shrink-0" /><span className="truncate">{printer.active_plate_uid} - {printer.active_plate_name}</span></div>}
           {printer.active_multicolor_modules.length > 0 && <div className="flex items-center gap-1.5"><Layers3 className="h-3 w-3 flex-shrink-0" /><span className="truncate">{printer.active_multicolor_modules.map(item => item.name).join(", ")}</span></div>}
-          <div className="flex items-center gap-1.5"><Zap className="h-3 w-3 flex-shrink-0" /><span>{printer.consumo_w}W - o{printer.diametro_ugello}mm - EUR {printer.ammortamento_orario}/h</span></div>
+          <div className="flex items-center gap-1.5"><Zap className="h-3 w-3 flex-shrink-0" /><span>{printer.consumo_w}W · ø{printer.diametro_ugello}mm · €{printer.ammortamento_orario}/h</span></div>
         </div>
         <div className="mt-auto pt-1">
-          <Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button variant="outline" size="sm" className="w-full gap-2"><Settings className="h-4 w-4" />Configuration</Button></DialogTrigger><DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Asset Configuration - {displayName}</DialogTitle></DialogHeader><ConfigDialog printer={printer} components={components} onSave={data => { onUpdate(data); setOpen(false) }} onDelete={() => { onDelete(); setOpen(false) }} isPending={isPending} /></DialogContent></Dialog>
+          <Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button variant="outline" size="sm" className="w-full gap-2"><Settings className="h-4 w-4" />Configurazione</Button></DialogTrigger><DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Configurazione — {displayName}</DialogTitle></DialogHeader><ConfigDialog printer={printer} components={components} onSave={data => { onUpdate(data); setOpen(false) }} onDelete={() => { onDelete(); setOpen(false) }} isPending={isPending} /></DialogContent></Dialog>
         </div>
       </CardContent>
     </Card>
@@ -323,13 +352,23 @@ export default function Stampanti() {
   const stats = useMemo(() => ({ total: stampanti.length, due: stampanti.filter(item => item.maintenance_status === "due").length, warning: stampanti.filter(item => item.maintenance_status === "warning").length, runtime: stampanti.reduce((sum, item) => sum + item.accumulated_runtime_hours, 0) }), [stampanti])
   if (!settings) return <p className="opacity-50 text-sm">Loading settings...</p>
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div><h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Printer Fleet</h2><p className="text-sm mt-0.5" style={{ color: "var(--muted-text)" }}>Hardware, manutenzione e componenti installati. Intervallo globale: {settings.maintenance_interval_hours} h</p></div>
-        <Dialog open={addOpen} onOpenChange={setAddOpen}><DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1" />Provision Asset</Button></DialogTrigger><DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Hardware Onboarding</DialogTitle></DialogHeader><OnboardingForm onSubmit={data => createMutation.mutate(data)} isPending={createMutation.isPending} /></DialogContent></Dialog>
-      </div>
-      {stampanti.length > 0 && <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{[{ label: "Total Assets", value: stats.total, icon: Printer }, { label: "Due Maintenance", value: stats.due, icon: AlertTriangle }, { label: "Warnings", value: stats.warning, icon: Wrench }, { label: "Fleet Runtime", value: `${stats.runtime.toFixed(0)}h`, icon: Clock }].map(stat => <div key={stat.label} className="rounded-xl p-3 border" style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}><div className="flex items-center justify-between"><p className="text-xs uppercase tracking-wider" style={{ color: "var(--muted-text)" }}>{stat.label}</p><stat.icon className="h-4 w-4 opacity-50" /></div><p className="text-2xl font-bold mt-1" style={{ color: "var(--accent)" }}>{stat.value}</p></div>)}</div>}
-      {isLoading ? <p className="opacity-50 text-sm">Loading fleet data...</p> : stampanti.length === 0 ? <div className="rounded-xl border-2 border-dashed p-12 text-center" style={{ borderColor: "var(--card-border)" }}><Printer className="h-12 w-12 mx-auto mb-3 opacity-20" /><p className="font-medium" style={{ color: "var(--text)" }}>No assets provisioned</p><p className="text-sm mt-1" style={{ color: "var(--muted-text)" }}>Click "Provision Asset" to register your first printer</p></div> : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">{stampanti.map(printer => <PrinterCard key={printer.id} printer={printer} components={components} onUpdate={data => updateMutation.mutate({ id: printer.id, data })} onDelete={() => deleteMutation.mutate(printer.id)} isPending={updateMutation.isPending || deleteMutation.isPending} />)}</div>}
-    </div>
+    <PageLayout
+      title="Parco Macchine"
+      description={`Hardware, manutenzione e componenti installati. Intervallo globale attivo: ${settings.maintenance_interval_hours} h.`}
+      actions={(
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="h-4 w-4" /> Aggiungi stampante</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>Registra nuova stampante</DialogTitle></DialogHeader>
+            <OnboardingForm onSubmit={data => createMutation.mutate(data)} isPending={createMutation.isPending} />
+          </DialogContent>
+        </Dialog>
+      )}
+    >
+      {stampanti.length > 0 && <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{[{ label: "Totale Asset", value: stats.total, icon: Printer }, { label: "Manutenzioni Scadute", value: stats.due, icon: AlertTriangle }, { label: "In Scadenza", value: stats.warning, icon: Wrench }, { label: "Ore Totali Farm", value: `${stats.runtime.toFixed(0)}h`, icon: Clock }].map(stat => <div key={stat.label} className="rounded-xl p-3 border" style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}><div className="flex items-center justify-between"><p className="text-xs uppercase tracking-wider" style={{ color: "var(--muted-text)" }}>{stat.label}</p><stat.icon className="h-4 w-4 opacity-50" /></div><p className="text-2xl font-bold mt-1" style={{ color: "var(--accent)" }}>{stat.value}</p></div>)}</div>}
+      {isLoading ? <p className="opacity-50 text-sm">Caricamento parco macchine...</p> : stampanti.length === 0 ? <div className="rounded-xl border-2 border-dashed p-12 text-center" style={{ borderColor: "var(--card-border)" }}><Printer className="h-12 w-12 mx-auto mb-3 opacity-20" /><p className="font-medium" style={{ color: "var(--text)" }}>Nessun asset registrato</p><p className="text-sm mt-1" style={{ color: "var(--muted-text)" }}>Clicca "Aggiungi Stampante" per registrare la prima stampante</p></div> : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">{stampanti.map(printer => <PrinterCard key={printer.id} printer={printer} components={components} onUpdate={data => updateMutation.mutate({ id: printer.id, data })} onDelete={() => deleteMutation.mutate(printer.id)} isPending={updateMutation.isPending || deleteMutation.isPending} />)}</div>}
+    </PageLayout>
   )
 }

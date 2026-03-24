@@ -88,6 +88,13 @@ class StampanteCreate(BaseModel):
     network_port: Optional[int] = None
     network_serial: Optional[str] = None
     lan_access_code: Optional[str] = None
+    # Ammortamento tracking finito
+    ammortamento_attivo: Optional[bool] = True
+    ammortamento_residuo_euro: Optional[float] = None
+    ammortamento_recuperato_euro: Optional[float] = 0.0
+    ammortamento_quota_oraria: Optional[float] = None
+    ammortamento_modalita: Optional[str] = "manual_hourly_capped"
+    risk_perc_base: Optional[float] = 0.0
 
 
 class InstalledComponentRef(BaseModel):
@@ -215,6 +222,9 @@ class ProjectCostItem(BaseModel):
     costo_materiali: float
     costo_energia: float
     costo_ammortamento: float
+    quota_manutenzione: float = 0.0
+    quota_overhead: float = 0.0
+    quota_allocazioni: float = 0.0
     costo_accessori: float
     costo_progettazione: float
     costo_extra_progetto: float
@@ -223,6 +233,10 @@ class ProjectCostItem(BaseModel):
     margine_perc: float
     ore_totali: float
     n_stampe: int
+    quantita_da_produrre: int = 1
+    costo_unitario: float = 0.0
+    margine_unitario: float = 0.0
+    has_estimated_logs: bool = False
 
 
 # ─── COMPONENT REPLACEMENTS ──────────────────────────────────────────────────
@@ -362,6 +376,9 @@ class LogStampaOut(BaseModel):
     materiale: Optional[str] = None
     colore: Optional[str] = None
     codice_univoco: Optional[str] = None
+    # snapshot costi storici
+    snapshot_costo_totale_log: Optional[float] = None
+    snapshot_data_calcolo: Optional[str] = None
 
 
 # ─── SETTINGS ─────────────────────────────────────────────────────────────────
@@ -369,6 +386,10 @@ class LogStampaOut(BaseModel):
 class Settings(BaseModel):
     costo_kwh: float
     costo_orario_post_prod: float
+    costo_orario_manodopera: float = 15.0
+    margine_lordo_default_perc: float = 35.0
+    costo_orario_progettazione_default: float = 25.0
+    criterio_rischio_default: str = "standard"
     ore_lavorative_mensili_farm: float
     maintenance_interval_hours: float = 250.0
     theme_mode: str = "Scuro"
@@ -416,6 +437,196 @@ class DashboardAnalytics(BaseModel):
     scorte: List[ScortaItem]
 
 
+# ─── PREVENTIVI ───────────────────────────────────────────────────────────────
+
+PreventivoStato = Literal["bozza", "confermato", "annullato", "convertito"]
+
+
+class MaterialConfig(BaseModel):
+    materiale: str
+    marca: str = ""
+    scarto_predefinito_perc: float = 0.0
+    energy_multiplier: float = 1.0
+    risk_perc_base: float = 0.0
+    note: str = ""
+
+
+class MaterialConfigOut(MaterialConfig):
+    id: int
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class CostoStraordinarioStrutturaCreate(BaseModel):
+    descrizione: str
+    importo_totale: float
+    importo_residuo: Optional[float] = None
+    quota_oraria: float = 0.0
+    ore_da_spalmare_totali: Optional[float] = None
+    ore_da_spalmare_residue: Optional[float] = None
+    attivo: bool = True
+    data: str
+    note: str = ""
+
+
+class CostoStraordinarioStrutturaOut(CostoStraordinarioStrutturaCreate):
+    id: int
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class PreventivoMaterialeInput(BaseModel):
+    magazzino_id: Optional[int] = None
+    materiale_nome: str = ""
+    marca: str = ""
+    colore: str = ""
+    costo_kg: Optional[float] = None
+    grammi_modello: float = 0.0
+    scarto_perc: Optional[float] = None
+    energy_multiplier: Optional[float] = None
+    risk_perc: Optional[float] = None
+
+
+class PreventivoMaterialeOut(BaseModel):
+    id: int
+    preventivo_id: int
+    magazzino_id: Optional[int] = None
+    materiale_nome_snapshot: str = ""
+    marca_snapshot: str = ""
+    colore_snapshot: str = ""
+    costo_kg_snapshot: float = 0.0
+    grammi_modello: float = 0.0
+    scarto_perc: float = 0.0
+    grammi_totali: float = 0.0
+    energy_multiplier_snapshot: float = 1.0
+    risk_perc_snapshot: float = 0.0
+    costo_totale: float = 0.0
+
+
+class PreventivoPostProduzioneInput(BaseModel):
+    descrizione: str
+    minuti: Optional[float] = None
+    costo_manual: Optional[float] = None
+
+
+class PreventivoPostProduzioneOut(BaseModel):
+    id: int
+    preventivo_id: int
+    descrizione: str
+    minuti: Optional[float] = None
+    costo_manual: Optional[float] = None
+    costo_totale: float = 0.0
+
+
+class PreventivoComponenteExtraInput(BaseModel):
+    descrizione: str
+    quantita: float = 1.0
+    costo_unitario: float = 0.0
+
+
+class PreventivoComponenteExtraOut(BaseModel):
+    id: int
+    preventivo_id: int
+    descrizione: str
+    quantita: float = 1.0
+    costo_unitario: float = 0.0
+    costo_totale: float = 0.0
+
+
+class PreventivoCalcoloBreakdown(BaseModel):
+    costo_materiali: float = 0.0
+    costo_energia: float = 0.0
+    costo_setup: float = 0.0
+    costo_post_produzione: float = 0.0
+    costo_componenti_extra: float = 0.0
+    costo_packing: float = 0.0
+    costo_spedizione: float = 0.0
+    costo_costi_fissi: float = 0.0
+    costo_manutenzione_ordinaria: float = 0.0
+    costo_manutenzione_straordinaria: float = 0.0
+    costo_ammortamento: float = 0.0
+    costo_straordinari_struttura: float = 0.0
+    costo_progettazione: float = 0.0
+    costo_rischio: float = 0.0
+    costo_extra_manual: float = 0.0
+    costo_pieno: float = 0.0
+    prezzo_finale: float = 0.0
+    utile_lordo: float = 0.0
+    margine_lordo_perc: float = 0.0
+    energy_multiplier_eff: float = 1.0
+    rischio_totale_perc: float = 0.0
+    quota_costi_fissi_oraria: float = 0.0
+    quota_manutenzione_ordinaria_oraria: float = 0.0
+    quota_manutenzione_straordinaria_oraria: float = 0.0
+    quota_straordinari_struttura_oraria: float = 0.0
+    quota_ammortamento_oraria: float = 0.0
+    warning: Optional[str] = None
+
+
+class PreventivoCreate(BaseModel):
+    numero_preventivo: Optional[str] = None
+    data: str
+    cliente_id: Optional[int] = None
+    cliente_nome_snapshot: str = ""
+    progetto_nome: str
+    stampante_id: int
+    stato: PreventivoStato = "bozza"
+    quantita: int = 1
+    ore_stampa: float = 0.0
+    minuti_setup: float = 0.0
+    costo_progettazione: float = 0.0
+    costo_packing: float = 0.0
+    costo_spedizione: float = 0.0
+    costo_extra_manual: float = 0.0
+    margine_lordo_perc: float = 0.0
+    override_rischio_perc: Optional[float] = None
+    note: str = ""
+    materiali: List[PreventivoMaterialeInput] = []
+    post_produzione: List[PreventivoPostProduzioneInput] = []
+    componenti_extra: List[PreventivoComponenteExtraInput] = []
+
+
+class PreventivoListItem(BaseModel):
+    id: int
+    numero_preventivo: str
+    data: str
+    cliente_id: Optional[int] = None
+    cliente_nome_snapshot: str = ""
+    progetto_nome: str
+    stampante_id: int
+    stampante_nome_snapshot: str = ""
+    stato: PreventivoStato
+    quantita: int = 1
+    costo_pieno: float = 0.0
+    prezzo_finale: float = 0.0
+    utile_lordo: float = 0.0
+    margine_lordo_perc: float = 0.0
+    updated_at: Optional[str] = None
+
+
+class PreventivoOut(PreventivoListItem):
+    ore_stampa: float = 0.0
+    minuti_setup: float = 0.0
+    costo_progettazione: float = 0.0
+    costo_packing: float = 0.0
+    costo_spedizione: float = 0.0
+    costo_extra_manual: float = 0.0
+    override_rischio_perc: Optional[float] = None
+    note: str = ""
+    snapshot_json: str = "{}"
+    materiali: List[PreventivoMaterialeOut] = []
+    post_produzione: List[PreventivoPostProduzioneOut] = []
+    componenti_extra: List[PreventivoComponenteExtraOut] = []
+    breakdown: PreventivoCalcoloBreakdown
+
+
+class PreventivoPreviewResponse(BaseModel):
+    breakdown: PreventivoCalcoloBreakdown
+    materiali: List[PreventivoMaterialeOut] = []
+    post_produzione: List[PreventivoPostProduzioneOut] = []
+    componenti_extra: List[PreventivoComponenteExtraOut] = []
+
+
 # ─── PIANIFICAZIONE PRODUZIONE (fase 7 + 7-bis) ──────────────────────────────
 
 EventoCategoria = Literal["stampe", "manutenzione", "appuntamenti"]
@@ -448,6 +659,7 @@ class MaintenanceTemplateCreate(BaseModel):
     soglia_ore_massima: float = 200.0
     ordine_visualizzazione: int = 0
     attiva: bool = True
+    costo_standard_intervento: float = 0.0
 
 
 class MaintenanceTemplateOut(MaintenanceTemplateCreate):
@@ -534,6 +746,10 @@ class MarginiCalcolati(BaseModel):
     margine_assoluto: float
     margine_perc: float
     ore_totali: float
+    costo_unitario: float = 0.0
+    margine_unitario: float = 0.0
+    quota_manutenzione: float = 0.0
+    has_estimated_logs: bool = False
 
 
 class ProgettoCardData(BaseModel):

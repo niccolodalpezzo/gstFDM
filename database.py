@@ -87,6 +87,24 @@ def _migrate(cursor):
         ("extraordinary_maintenance", "spalmatura_attiva",          "INTEGER DEFAULT 0"),
         # Component replacements — spalmatura costo farm
         ("component_replacements", "spalma_costo_farm", "INTEGER DEFAULT 0"),
+        # Stampanti — ammortamento tracking finito
+        ("stampanti", "ammortamento_attivo",          "BOOLEAN DEFAULT 1"),
+        ("stampanti", "ammortamento_residuo_euro",    "REAL DEFAULT NULL"),
+        ("stampanti", "ammortamento_recuperato_euro", "REAL DEFAULT 0"),
+        ("stampanti", "ammortamento_quota_oraria",    "REAL DEFAULT NULL"),
+        ("stampanti", "ammortamento_modalita",        "TEXT DEFAULT 'manual_hourly_capped'"),
+        ("stampanti", "risk_perc_base",               "REAL DEFAULT 0.0"),
+        # Maintenance templates — costo standard per intervento
+        ("maintenance_templates", "costo_standard_intervento", "REAL DEFAULT 0"),
+        # Log stampe — snapshot storico costi
+        ("log_stampe", "snapshot_costo_materiale",    "REAL DEFAULT NULL"),
+        ("log_stampe", "snapshot_costo_energia",      "REAL DEFAULT NULL"),
+        ("log_stampe", "snapshot_costo_ammortamento", "REAL DEFAULT NULL"),
+        ("log_stampe", "snapshot_quota_manutenzione", "REAL DEFAULT NULL"),
+        ("log_stampe", "snapshot_quota_overhead",     "REAL DEFAULT NULL"),
+        ("log_stampe", "snapshot_quota_allocazioni",  "REAL DEFAULT NULL"),
+        ("log_stampe", "snapshot_costo_totale_log",   "REAL DEFAULT NULL"),
+        ("log_stampe", "snapshot_data_calcolo",       "TEXT DEFAULT NULL"),
     ]
     for table, column, col_def in migrations:
         try:
@@ -471,8 +489,130 @@ def init_db():
             )
         ''')
 
+        # Configurazioni materiali per costing preventivi
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS material_configs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                materiale TEXT NOT NULL,
+                marca TEXT NOT NULL DEFAULT '',
+                scarto_predefinito_perc REAL DEFAULT 0.0,
+                energy_multiplier REAL DEFAULT 1.0,
+                risk_perc_base REAL DEFAULT 0.0,
+                note TEXT DEFAULT '',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(materiale, marca)
+            )
+        ''')
+
+        # Costi straordinari struttura con recupero finito
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS costi_straordinari_struttura (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                descrizione TEXT NOT NULL,
+                importo_totale REAL NOT NULL,
+                importo_residuo REAL NOT NULL,
+                quota_oraria REAL DEFAULT 0.0,
+                ore_da_spalmare_totali REAL DEFAULT NULL,
+                ore_da_spalmare_residue REAL DEFAULT NULL,
+                attivo INTEGER DEFAULT 1,
+                data TEXT NOT NULL,
+                note TEXT DEFAULT '',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # Testata preventivi
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS preventivi (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                numero_preventivo TEXT NOT NULL UNIQUE,
+                data TEXT NOT NULL,
+                cliente_id INTEGER DEFAULT NULL,
+                cliente_nome_snapshot TEXT DEFAULT '',
+                progetto_nome TEXT NOT NULL,
+                stampante_id INTEGER NOT NULL,
+                stampante_nome_snapshot TEXT DEFAULT '',
+                stato TEXT NOT NULL DEFAULT 'bozza',
+                quantita INTEGER DEFAULT 1,
+                ore_stampa REAL DEFAULT 0.0,
+                minuti_setup REAL DEFAULT 0.0,
+                costo_progettazione REAL DEFAULT 0.0,
+                costo_packing REAL DEFAULT 0.0,
+                costo_spedizione REAL DEFAULT 0.0,
+                costo_extra_manual REAL DEFAULT 0.0,
+                margine_lordo_perc REAL DEFAULT 0.0,
+                override_rischio_perc REAL DEFAULT NULL,
+                note TEXT DEFAULT '',
+                snapshot_json TEXT DEFAULT '{}',
+                costo_pieno REAL DEFAULT 0.0,
+                prezzo_finale REAL DEFAULT 0.0,
+                utile_lordo REAL DEFAULT 0.0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (cliente_id) REFERENCES clienti(id),
+                FOREIGN KEY (stampante_id) REFERENCES stampanti(id)
+            )
+        ''')
+
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS preventivo_materiali (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                preventivo_id INTEGER NOT NULL,
+                magazzino_id INTEGER DEFAULT NULL,
+                materiale_nome_snapshot TEXT DEFAULT '',
+                marca_snapshot TEXT DEFAULT '',
+                colore_snapshot TEXT DEFAULT '',
+                costo_kg_snapshot REAL DEFAULT 0.0,
+                grammi_modello REAL DEFAULT 0.0,
+                scarto_perc REAL DEFAULT 0.0,
+                grammi_totali REAL DEFAULT 0.0,
+                energy_multiplier_snapshot REAL DEFAULT 1.0,
+                risk_perc_snapshot REAL DEFAULT 0.0,
+                costo_totale REAL DEFAULT 0.0,
+                FOREIGN KEY (preventivo_id) REFERENCES preventivi(id) ON DELETE CASCADE,
+                FOREIGN KEY (magazzino_id) REFERENCES magazzino(id)
+            )
+        ''')
+
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS preventivo_post_produzione (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                preventivo_id INTEGER NOT NULL,
+                descrizione TEXT NOT NULL,
+                minuti REAL DEFAULT NULL,
+                costo_manual REAL DEFAULT NULL,
+                costo_totale REAL DEFAULT 0.0,
+                FOREIGN KEY (preventivo_id) REFERENCES preventivi(id) ON DELETE CASCADE
+            )
+        ''')
+
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS preventivo_componenti_extra (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                preventivo_id INTEGER NOT NULL,
+                descrizione TEXT NOT NULL,
+                quantita REAL DEFAULT 1.0,
+                costo_unitario REAL DEFAULT 0.0,
+                costo_totale REAL DEFAULT 0.0,
+                FOREIGN KEY (preventivo_id) REFERENCES preventivi(id) ON DELETE CASCADE
+            )
+        ''')
+
         # Applica migrazioni per DB esistenti
         _migrate(c)
+        # Backfill ammortamento per stampanti esistenti (idempotente)
+        c.execute("""
+            UPDATE stampanti
+            SET ammortamento_residuo_euro = costo_acquisto
+            WHERE ammortamento_residuo_euro IS NULL AND costo_acquisto IS NOT NULL
+        """)
+        c.execute("""
+            UPDATE stampanti
+            SET ammortamento_quota_oraria = ammortamento_orario
+            WHERE ammortamento_quota_oraria IS NULL AND ammortamento_orario IS NOT NULL
+        """)
         for old_status, new_status in (
             ("Design", "Progettazione"),
             ("Prototyping", "Prototipazione"),
@@ -1314,21 +1454,21 @@ def get_maintenance_templates(only_active: bool = False):
         return pd.read_sql_query(q, conn)
 
 
-def add_maintenance_template(nome, descrizione, soglia_ore_massima, ordine_visualizzazione, attiva=True) -> int:
+def add_maintenance_template(nome, descrizione, soglia_ore_massima, ordine_visualizzazione, attiva=True, costo_standard_intervento=0.0) -> int:
     with get_db_connection() as conn:
         cur = conn.execute(
-            "INSERT INTO maintenance_templates (nome, descrizione, soglia_ore_massima, ordine_visualizzazione, attiva) VALUES (?,?,?,?,?)",
-            (nome, descrizione, soglia_ore_massima, ordine_visualizzazione, 1 if attiva else 0)
+            "INSERT INTO maintenance_templates (nome, descrizione, soglia_ore_massima, ordine_visualizzazione, attiva, costo_standard_intervento) VALUES (?,?,?,?,?,?)",
+            (nome, descrizione, soglia_ore_massima, ordine_visualizzazione, 1 if attiva else 0, costo_standard_intervento)
         )
         conn.commit()
         return cur.lastrowid
 
 
-def update_maintenance_template(template_id, nome, descrizione, soglia_ore_massima, ordine_visualizzazione, attiva):
+def update_maintenance_template(template_id, nome, descrizione, soglia_ore_massima, ordine_visualizzazione, attiva, costo_standard_intervento=0.0):
     with get_db_connection() as conn:
         conn.execute(
-            "UPDATE maintenance_templates SET nome=?, descrizione=?, soglia_ore_massima=?, ordine_visualizzazione=?, attiva=? WHERE id=?",
-            (nome, descrizione, soglia_ore_massima, ordine_visualizzazione, 1 if attiva else 0, template_id)
+            "UPDATE maintenance_templates SET nome=?, descrizione=?, soglia_ore_massima=?, ordine_visualizzazione=?, attiva=?, costo_standard_intervento=? WHERE id=?",
+            (nome, descrizione, soglia_ore_massima, ordine_visualizzazione, 1 if attiva else 0, costo_standard_intervento, template_id)
         )
         conn.commit()
 
@@ -1499,6 +1639,100 @@ def consume_allocation_hours(ore_stampa: float):
             else:
                 conn.execute(
                     "UPDATE extraordinary_maintenance SET ore_residue_da_spalmare=? WHERE id=?",
+                    (nuove_ore, row["id"])
+                )
+        conn.commit()
+
+
+def save_log_snapshot(log_id: int, snapshot: dict) -> None:
+    """Salva lo snapshot dei costi calcolati al momento della creazione del log."""
+    with get_db_connection() as conn:
+        conn.execute(
+            """UPDATE log_stampe SET
+               snapshot_costo_materiale    = ?,
+               snapshot_costo_energia      = ?,
+               snapshot_costo_ammortamento = ?,
+               snapshot_quota_manutenzione = ?,
+               snapshot_quota_overhead     = ?,
+               snapshot_quota_allocazioni  = ?,
+               snapshot_costo_totale_log   = ?,
+               snapshot_data_calcolo       = ?
+               WHERE id = ?""",
+            (
+                snapshot.get("costo_materiale"),
+                snapshot.get("costo_energia"),
+                snapshot.get("costo_ammortamento"),
+                snapshot.get("quota_manutenzione"),
+                snapshot.get("quota_overhead"),
+                snapshot.get("quota_allocazioni"),
+                snapshot.get("costo_totale_log"),
+                snapshot.get("data_calcolo"),
+                log_id,
+            )
+        )
+        conn.commit()
+
+
+def decrement_ammortamento(stampante_id: int, ore_stampa: float) -> None:
+    """Decrementa il residuo di ammortamento della stampante. Disattiva quando raggiunge zero."""
+    with get_db_connection() as conn:
+        row = conn.execute(
+            """SELECT ammortamento_attivo, ammortamento_residuo_euro, ammortamento_quota_oraria
+               FROM stampanti WHERE id = ?""",
+            (stampante_id,)
+        ).fetchone()
+        if not row:
+            return
+        if not row["ammortamento_attivo"]:
+            return
+        quota = float(row["ammortamento_quota_oraria"] or 0.0)
+        residuo = float(row["ammortamento_residuo_euro"] or 0.0)
+        decrement_teorico = quota * ore_stampa
+        decrement_effettivo = min(decrement_teorico, residuo)
+        nuovo_residuo = max(0.0, residuo - decrement_effettivo)
+        attivo = 1 if nuovo_residuo > 0 else 0
+        conn.execute(
+            """UPDATE stampanti SET
+               ammortamento_residuo_euro    = ?,
+               ammortamento_recuperato_euro = COALESCE(ammortamento_recuperato_euro, 0) + ?,
+               ammortamento_attivo          = ?
+               WHERE id = ?""",
+            (nuovo_residuo, decrement_effettivo, attivo, stampante_id)
+        )
+        conn.commit()
+
+
+def consume_extraordinary_maintenance_hours(printer_id: int, ore_stampa: float) -> None:
+    """
+    Decrementa le ore residue delle spalmature straordinarie attive per una singola stampante.
+    Usato dai preventivi confermati/convertiti per non consumare altre stampanti.
+    """
+    if ore_stampa <= 0:
+        return
+    with get_db_connection() as conn:
+        active_rows = conn.execute(
+            """SELECT id, ore_residue_da_spalmare
+               FROM extraordinary_maintenance
+               WHERE printer_id = ? AND spalmatura_attiva = 1""",
+            (printer_id,)
+        ).fetchall()
+
+        for row in active_rows:
+            residue = float(row["ore_residue_da_spalmare"] or 0.0)
+            nuove_ore = residue - ore_stampa
+            if nuove_ore <= 0:
+                conn.execute(
+                    """UPDATE extraordinary_maintenance
+                       SET ore_residue_da_spalmare = 0,
+                           spalmatura_attiva = 0
+                       WHERE id = ?""",
+                    (row["id"],)
+                )
+            else:
+                conn.execute(
+                    """UPDATE extraordinary_maintenance
+                       SET ore_residue_da_spalmare = ?
+                       WHERE id = ?""",
                     (nuove_ore, row["id"])
                 )
         conn.commit()

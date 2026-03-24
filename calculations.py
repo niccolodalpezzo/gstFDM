@@ -17,6 +17,13 @@ def calcola_margine_completo(progetto, logs, stampanti_list, magazzino_list, cos
     costi_accessori_tot = 0.0
     ore_progetto_tot = 0.0
 
+    # Carica density ratios una volta sola (per coerenza con cost_engine)
+    try:
+        import database as _db_ratios
+        _density_map = {r["material"].upper(): float(r["multiplier"]) for r in _db_ratios.get_material_density_ratios()}
+    except Exception:
+        _density_map = {}
+
     for log in logs:
         stampante = next((s for s in stampanti_list if s['id'] == log['stampante_id']), None)
         magazzino = next((m for m in magazzino_list if m['id'] == log['magazzino_id']), None)
@@ -28,8 +35,10 @@ def calcola_margine_completo(progetto, logs, stampanti_list, magazzino_list, cos
         ore_progetto_tot += tempo_h
         grammi = float(log['grammi_usati'])
 
-        # Costo materiale
-        costo_materiale = (float(magazzino['costo_kg']) / 1000.0) * grammi
+        # Costo materiale (con density ratio — allineato a cost_engine)
+        _mat_key = str(magazzino.get('materiale', '')).upper()
+        _multiplier = _density_map.get(_mat_key, 1.0)
+        costo_materiale = (float(magazzino['costo_kg']) / 1000.0) * grammi * _multiplier
         # Costo energia
         consumo_kw = float(stampante['consumo_w']) / 1000.0
         costo_energia = consumo_kw * tempo_h * kwh_cost

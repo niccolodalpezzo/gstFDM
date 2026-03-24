@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form"
 import { api } from "@/lib/api"
 import { queryClient } from "@/lib/queryClient"
 import { useToast } from "@/components/ui/toast"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -1546,15 +1547,10 @@ export default function InventoryManagement() {
   const meta = SECTION_META[segment] ?? SECTION_META["filamenti"]
 
   return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>{meta.label}</h2>
-        <p className="text-sm mt-0.5" style={{ color: "var(--muted-text)" }}>{meta.sub}</p>
-      </div>
-
+    <PageLayout title={meta.label} description={meta.sub}>
       {segment === "filamenti" && <FilamentInventory />}
       {segment === "ricambi" && <ComponentReplacements />}
       {segment === "componenti" && <GenericAssets />}
-    </div>
+    </PageLayout>
   )
 }

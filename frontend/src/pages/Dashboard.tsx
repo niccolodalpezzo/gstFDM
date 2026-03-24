@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts"
 import { TrendingUp, TrendingDown, Activity, AlertTriangle, Package, Wrench } from "lucide-react"
+import { PageLayout } from "@/components/layout/PageLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { api } from "@/lib/api"
 import { formatEur } from "@/lib/utils"
@@ -410,61 +411,36 @@ export default function Dashboard() {
     custom: "Custom Range",
   }
 
-  return (
-    <div className="flex flex-col h-full gap-5">
+  const dashboardControls = (
+    <div className="toolbar-surface">
+      <div className="toolbar-surface__group">
+        {(["monthly", "annual", "custom"] as FilterMode[]).map(m => (
+          <button
+            key={m}
+            onClick={() => setMode(m)}
+            className="px-4 py-2 text-sm rounded-xl transition-colors"
+            style={{
+              background: mode === m ? "var(--accent)" : "transparent",
+              color: mode === m ? "var(--accent-foreground)" : "var(--text-secondary)",
+              fontWeight: mode === m ? 700 : 500,
+            }}
+          >
+            {filterLabels[m]}
+          </button>
+        ))}
+      </div>
 
-      {/* ── Control Panel ───────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
-            Operations Dashboard
-          </h2>
-          <p className="text-xs mt-0.5" style={{ color: "var(--muted-text)" }}>
-            Additive Manufacturing — Financial & Resource Analytics
-          </p>
-        </div>
-
-        {/* Period Selector */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: "var(--border)" }}>
-            {(["monthly", "annual", "custom"] as FilterMode[]).map(m => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                className="px-4 py-1.5 text-sm transition-colors"
-                style={{
-                  background: mode === m ? "var(--accent)" : "var(--card-bg)",
-                  color: mode === m ? "#fff" : "var(--text)",
-                  fontWeight: mode === m ? 600 : 400,
-                }}
-              >
-                {filterLabels[m]}
-              </button>
-            ))}
-          </div>
-
-          {mode === "monthly" && (
-            <>
-              <select
-                value={month}
-                onChange={e => setMonth(Number(e.target.value))}
-                className={inputCls}
-                style={inputStyle}
-              >
-                {MONTHS.map((n, i) => <option key={i} value={i + 1}>{n}</option>)}
-              </select>
-              <select
-                value={year}
-                onChange={e => setYear(Number(e.target.value))}
-                className={inputCls}
-                style={inputStyle}
-              >
-                {YEARS.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </>
-          )}
-
-          {mode === "annual" && (
+      <div className="toolbar-surface__group">
+        {mode === "monthly" && (
+          <>
+            <select
+              value={month}
+              onChange={e => setMonth(Number(e.target.value))}
+              className={inputCls}
+              style={inputStyle}
+            >
+              {MONTHS.map((n, i) => <option key={i} value={i + 1}>{n}</option>)}
+            </select>
             <select
               value={year}
               onChange={e => setYear(Number(e.target.value))}
@@ -473,32 +449,49 @@ export default function Dashboard() {
             >
               {YEARS.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
-          )}
+          </>
+        )}
 
-          {mode === "custom" && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium" style={{ color: "var(--muted-text)" }}>Start</span>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={e => setDateFrom(e.target.value)}
-                className={inputCls}
-                style={inputStyle}
-              />
-              <span className="text-xs font-medium" style={{ color: "var(--muted-text)" }}>End</span>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={e => setDateTo(e.target.value)}
-                className={inputCls}
-                style={inputStyle}
-              />
-            </div>
-          )}
-        </div>
+        {mode === "annual" && (
+          <select
+            value={year}
+            onChange={e => setYear(Number(e.target.value))}
+            className={inputCls}
+            style={inputStyle}
+          >
+            {YEARS.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        )}
+
+        {mode === "custom" && (
+          <>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+              className={inputCls}
+              style={inputStyle}
+            />
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
+              className={inputCls}
+              style={inputStyle}
+            />
+          </>
+        )}
       </div>
+    </div>
+  )
 
-      {/* ── Body ────────────────────────────────────────────────── */}
+  return (
+    <PageLayout
+      title="Operations Dashboard"
+      description="Financial overview, resource analytics e alert operativi della print farm."
+      actions={dashboardControls}
+    >
+
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center opacity-40 text-sm">
           Loading analytics...
@@ -541,6 +534,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   )
 }

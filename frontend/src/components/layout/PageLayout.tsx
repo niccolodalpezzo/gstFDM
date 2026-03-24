@@ -25,25 +25,24 @@ export function PageLayout({ title, description, actions, children, className }:
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className={cn("space-y-6", className)}
+      className={cn("page-layout", className)}
     >
-      {/* Header */}
-      <motion.div variants={itemVariants} className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
+      <motion.div variants={itemVariants} className="page-layout__header">
+        <div className="page-layout__heading">
+          <div className="page-layout__eyebrow">ERP Workspace</div>
+          <h1 className="page-layout__title">
             {title}
           </h1>
           {description && (
-            <p className="text-sm mt-0.5" style={{ color: "var(--muted-text)" }}>
+            <p className="page-layout__description">
               {description}
             </p>
           )}
         </div>
-        {actions && <div className="flex items-center gap-2 flex-wrap">{actions}</div>}
+        {actions && <div className="page-layout__actions">{actions}</div>}
       </motion.div>
 
-      {/* Content */}
-      <motion.div variants={itemVariants}>
+      <motion.div variants={itemVariants} className="page-layout__body">
         {children}
       </motion.div>
     </motion.div>
@@ -90,17 +89,17 @@ export function EmptyState({
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3 }}
-      className="flex flex-col items-center justify-center py-16 px-4 text-center"
+      className="empty-shell"
     >
       <div
-        className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl"
-        style={{ background: "var(--muted-bg)" }}
+        className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-[22px]"
+        style={{ background: "var(--muted-bg)", color: "var(--accent)" }}
       >
         <div className="text-2xl opacity-50">{icon}</div>
       </div>
-      <p className="font-semibold text-base" style={{ color: "var(--text)" }}>{title}</p>
+      <p className="empty-shell__title">{title}</p>
       {description && (
-        <p className="text-sm mt-1 max-w-xs" style={{ color: "var(--muted-text)" }}>{description}</p>
+        <p className="empty-shell__description">{description}</p>
       )}
       {action && <div className="mt-4">{action}</div>}
     </motion.div>
@@ -129,7 +128,7 @@ export function StatCard({
   return (
     <motion.div
       variants={itemVariants}
-      className="rounded-xl border p-5 space-y-3"
+      className="rounded-[24px] border p-5 space-y-4"
       style={{
         background: "var(--card-bg)",
         borderColor: "var(--card-border)",
@@ -137,17 +136,17 @@ export function StatCard({
       }}
     >
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-text)" }}>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--muted-text-light)" }}>
           {label}
         </p>
         <div
-          className="flex h-8 w-8 items-center justify-center rounded-lg"
-          style={{ background: color ? `color-mix(in srgb, ${color} 12%, transparent)` : "var(--muted-bg)" }}
+          className="flex h-10 w-10 items-center justify-center rounded-2xl"
+          style={{ background: color ? `color-mix(in srgb, ${color} 14%, transparent)` : "var(--muted-bg)" }}
         >
           <span style={{ color: color ?? "var(--muted-text)" }}>{icon}</span>
         </div>
       </div>
-      <p className="text-2xl font-bold tabular-nums" style={{ color: color ?? "var(--text)" }}>
+      <p className="text-[1.85rem] font-bold tabular-nums tracking-tight" style={{ color: color ?? "var(--text)" }}>
         {value}
       </p>
       {trendLabel && (

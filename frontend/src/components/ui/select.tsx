@@ -14,14 +14,19 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-9 w-full items-center justify-between whitespace-nowrap rounded-lg border px-3 py-2 text-sm transition-all duration-fast",
+      "flex h-10 w-full items-center justify-between whitespace-nowrap rounded-xl border px-3 py-2 text-sm transition-all duration-fast",
       "focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-[var(--accent)]",
       "hover:border-[var(--border-strong)]",
       "disabled:cursor-not-allowed disabled:opacity-40",
       "[&>span]:line-clamp-1",
       className
     )}
-    style={{ background: "var(--input-bg)", color: "var(--text)", borderColor: "var(--border)", boxShadow: "var(--shadow-xs)" }}
+    style={{
+      background: "var(--input-bg)",
+      color: "var(--text)",
+      borderColor: "var(--input-border)",
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.02)",
+    }}
     {...props}
   >
     {children}
@@ -40,7 +45,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-xl border shadow-xl",
+        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-2xl border shadow-xl",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         position === "popper" && "translate-y-1",
         className
@@ -66,7 +71,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none",
+      "relative flex w-full cursor-default select-none items-center rounded-xl py-2 pl-3 pr-8 text-sm outline-none",
       "focus:bg-[var(--accent-subtle)] focus:text-[var(--accent)]",
       "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className

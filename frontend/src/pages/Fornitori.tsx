@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form"
 import { api } from "@/lib/api"
 import { queryClient } from "@/lib/queryClient"
 import { useToast } from "@/components/ui/toast"
+import { EmptyState, PageLayout, StatCard } from "@/components/layout/PageLayout"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { Pencil, Trash2, Plus, Search } from "lucide-react"
+import { PackageCheck, Pencil, Search, ShoppingBag, Trash2, Plus } from "lucide-react"
 import type { Fornitore, FornitoreCreate } from "@/types"
 
 const CATEGORIES = ["Hardware", "Consumabili", "Manutenzione", "Logistica", "Servizi", "Altro"]
@@ -114,13 +115,13 @@ function FornitoreForm({
           </Select>
         </div>
         <div className="space-y-1">
-          <Label>Vendor Notes (Lead times, agreements)</Label>
+          <Label>Note fornitore (lead time, accordi)</Label>
           <Textarea {...register("note")} className="h-16" />
         </div>
       </div>
 
-      <Button type="submit" disabled={isPending} className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-md mt-4">
-        {isPending ? "Savng..." : "Salva Fornitore"}
+      <Button type="submit" disabled={isPending} className="w-full mt-4">
+        {isPending ? "Salvataggio..." : "Salva fornitore"}
       </Button>
     </form>
   )
@@ -146,15 +147,16 @@ export default function Fornitori() {
       (f.referente || "").toLowerCase().includes(searchTerm.toLowerCase())
     )
   }, [fornitori, searchTerm])
+  const categories = new Set(fornitori.map(fornitore => fornitore.categoria).filter(Boolean))
 
   const createMutation = useMutation({
     mutationFn: api.fornitori.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fornitori"] })
       setAddOpen(false)
-      toast("Vendor created", "success")
+      toast("Fornitore creato", "success")
     },
-    onError: () => toast("Error creating vendor", "error"),
+    onError: () => toast("Errore nella creazione fornitore", "error"),
   })
 
   const updateMutation = useMutation({
@@ -163,36 +165,34 @@ export default function Fornitori() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fornitori"] })
       setEditTarget(null)
-      toast("Vendor updated", "success")
+      toast("Fornitore aggiornato", "success")
     },
-    onError: () => toast("Error updating vendor", "error"),
+    onError: () => toast("Errore nell'aggiornamento fornitore", "error"),
   })
 
   const deleteMutation = useMutation({
     mutationFn: api.fornitori.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fornitori"] })
-      toast("Vendor deleted", "success")
+      toast("Fornitore eliminato", "success")
     },
-    onError: () => toast("Error deleting vendor", "error"),
+    onError: () => toast("Errore nell'eliminazione fornitore", "error"),
   })
 
-  if (isLoading) return <p className="opacity-50">Loading...</p>
+  if (isLoading) return <p className="opacity-50">Caricamento...</p>
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
-          Vendor Management
-        </h2>
-        
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground opacity-50" />
+    <PageLayout
+      title="Fornitori"
+      description="Anagrafiche fornitore, contatti logistici e catalogazione per categoria."
+      actions={(
+        <div className="toolbar-surface__group">
+          <div className="search-shell">
+            <Search className="h-4 w-4" />
             <Input
               type="search"
-              placeholder="Search vendors..."
-              className="pl-9 w-64 rounded-full bg-black/20"
+              placeholder="Cerca fornitore..."
+              className="w-72"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -200,13 +200,13 @@ export default function Fornitori() {
 
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white rounded-md">
-                <Plus className="h-4 w-4 mr-1" /> Nuovo Fornitore
+              <Button>
+                <Plus className="h-4 w-4" /> Nuovo fornitore
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>New Vendor</DialogTitle>
+                <DialogTitle>Nuovo fornitore</DialogTitle>
               </DialogHeader>
               <FornitoreForm
                 defaultValues={{ ragione_sociale: "", categoria: "Hardware" }}
@@ -216,12 +216,26 @@ export default function Fornitori() {
             </DialogContent>
           </Dialog>
         </div>
+      )}
+    >
+      <div className="stat-grid">
+        <StatCard label="Fornitori totali" value={fornitori.length} icon={<ShoppingBag className="h-4 w-4" />} />
+        <StatCard label="Categorie coperte" value={categories.size} icon={<PackageCheck className="h-4 w-4" />} color="var(--accent)" />
       </div>
 
       {filteredFornitori.length === 0 ? (
-        <p className="opacity-50 mt-12 text-center">No vendors found.</p>
+        <EmptyState
+          icon={<ShoppingBag className="h-7 w-7" />}
+          title="Nessun fornitore trovato"
+          description="Aggiorna i filtri oppure aggiungi un nuovo fornitore."
+          action={(
+            <Button onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4" /> Nuovo fornitore
+            </Button>
+          )}
+        />
       ) : (
-        <div className="grid gap-3">
+        <div className="list-stack">
           {filteredFornitori.map(f => (
             <Card key={f.id}>
               <CardContent className="py-4 flex items-center justify-between">
@@ -229,7 +243,7 @@ export default function Fornitori() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium truncate">{f.ragione_sociale}</p>
                     {f.categoria && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="text-xs px-2 py-1 rounded-full border" style={{ background: "var(--accent-subtle)", color: "var(--accent)", borderColor: "color-mix(in srgb, var(--accent) 18%, transparent)" }}>
                         {f.categoria}
                       </span>
                     )}
@@ -252,7 +266,7 @@ export default function Fornitori() {
                     </DialogTrigger>
                     <DialogContent className="max-w-md">
                       <DialogHeader>
-                        <DialogTitle>Edit Vendor</DialogTitle>
+                        <DialogTitle>Modifica fornitore</DialogTitle>
                       </DialogHeader>
                       {editTarget && (
                         <FornitoreForm
@@ -278,6 +292,6 @@ export default function Fornitori() {
           ))}
         </div>
       )}
-    </div>
+    </PageLayout>
   )
 }
