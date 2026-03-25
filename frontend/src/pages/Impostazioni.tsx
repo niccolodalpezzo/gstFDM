@@ -356,6 +356,7 @@ function QuoteMaterialConfigSection() {
     scarto_predefinito_perc: 0,
     energy_multiplier: 1,
     risk_perc_base: 0,
+    costo_kg: null,
     note: "",
   })
 
@@ -364,7 +365,7 @@ function QuoteMaterialConfigSection() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["preventivi-material-configs"] })
       toast("Configurazione materiale salvata", "success")
-      setNewConfig({ materiale: "", marca: "", scarto_predefinito_perc: 0, energy_multiplier: 1, risk_perc_base: 0, note: "" })
+      setNewConfig({ materiale: "", marca: "", scarto_predefinito_perc: 0, energy_multiplier: 1, risk_perc_base: 0, costo_kg: null, note: "" })
     },
     onError: error => toast(error instanceof Error ? error.message : "Errore nel salvataggio", "error"),
   })
@@ -383,7 +384,7 @@ function QuoteMaterialConfigSection() {
       <CardHeader>
         <CardTitle>Configurazione materiali per preventivi</CardTitle>
         <p className="text-xs mt-1" style={{ color: "var(--muted-text)" }}>
-          Scarto predefinito, moltiplicatore energia e rischio base usati dal cost engine preventivi.
+          Costo €/kg, scarto predefinito, moltiplicatore energia e rischio base usati dal cost engine preventivi.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -400,6 +401,10 @@ function QuoteMaterialConfigSection() {
             <div className="space-y-1">
               <Label>Scarto predefinito %</Label>
               <Input type="number" min="0" step="0.1" value={newConfig.scarto_predefinito_perc} onChange={event => setNewConfig(current => ({ ...current, scarto_predefinito_perc: Number(event.target.value) }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>Costo materiale €/kg</Label>
+              <Input type="number" min="0" step="0.01" value={newConfig.costo_kg ?? ""} onChange={event => setNewConfig(current => ({ ...current, costo_kg: event.target.value === "" ? null : Number(event.target.value) }))} placeholder="Es. 18.90" />
             </div>
             <div className="space-y-1">
               <Label>Moltiplicatore energia</Label>
@@ -424,15 +429,20 @@ function QuoteMaterialConfigSection() {
           {configs.length === 0 ? (
             <p className="text-sm" style={{ color: "var(--muted-text)" }}>Nessuna configurazione materiale registrata.</p>
           ) : (
-            configs.map(config => (
-              <div key={config.id} className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3" style={{ borderColor: "var(--card-border)" }}>
+            configs.map(config => {
+              const costoMancante = config.costo_kg == null || config.costo_kg <= 0
+              return (
+              <div key={config.id} className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3" style={{ borderColor: costoMancante ? "var(--warning, #f59e0b)" : "var(--card-border)" }}>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                  <p className="text-sm font-medium flex items-center gap-2" style={{ color: "var(--text)" }}>
                     {config.materiale}
                     {config.marca ? ` · ${config.marca}` : " · Generica"}
+                    {costoMancante && (
+                      <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ background: "color-mix(in srgb, #f59e0b 15%, transparent)", color: "#f59e0b", border: "1px solid color-mix(in srgb, #f59e0b 30%, transparent)", fontSize: "10px" }}>⚠ Costo mancante</span>
+                    )}
                   </p>
                   <p className="text-xs" style={{ color: "var(--muted-text)" }}>
-                    Scarto {config.scarto_predefinito_perc}% · Energia x{config.energy_multiplier.toFixed(2)} · Rischio {config.risk_perc_base}%
+                    {!costoMancante ? `Costo €${config.costo_kg!.toFixed(2)}/kg · ` : ""}Scarto {config.scarto_predefinito_perc}% · Energia x{config.energy_multiplier.toFixed(2)} · Rischio {config.risk_perc_base}%
                     {config.note ? ` · ${config.note}` : ""}
                   </p>
                 </div>
@@ -440,7 +450,8 @@ function QuoteMaterialConfigSection() {
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
-            ))
+              )
+            })
           )}
         </div>
       </CardContent>

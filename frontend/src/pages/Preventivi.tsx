@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import {
   Calculator,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react"
 
 import { EmptyState, PageLayout } from "@/components/layout/PageLayout"
+import { ConfigCheckBanner } from "@/components/shared/ConfigCheckBanner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -195,6 +197,7 @@ function BreakdownRow({ label, value, highlight = false }: { label: string; valu
 }
 
 export default function Preventivi() {
+  const navigate = useNavigate()
   const toast = useToast()
   const lastSavedRef = useRef("")
   const previewTimerRef = useRef<number | null>(null)
@@ -204,6 +207,7 @@ export default function Preventivi() {
   const [preview, setPreview] = useState<PreventivoPreview | null>(null)
   const [isDirty, setIsDirty] = useState(false)
   const [isPreviewLoading, setIsPreviewLoading] = useState(false)
+  const [previewError, setPreviewError] = useState<string | null>(null)
 
   const { data: settings } = useQuery({
     queryKey: ["settings"],
@@ -318,7 +322,10 @@ export default function Preventivi() {
     onSuccess: result => {
       queryClient.invalidateQueries({ queryKey: ["preventivi"] })
       queryClient.setQueryData(["preventivo", result.id], result)
-      toast("Preventivo convertito", "success")
+      toast("Preventivo convertito in ordine", "success")
+      if (result.ordine_id) {
+        navigate(`/produzione/ordini?id=${result.ordine_id}`)
+      }
     },
     onError: error => toast(error instanceof Error ? error.message : "Errore nella conversione", "error"),
   })
@@ -352,8 +359,9 @@ export default function Preventivi() {
       try {
         const result = await api.preventivi.preview(draft)
         setPreview(result)
+        setPreviewError(null)
       } catch (error) {
-        toast(error instanceof Error ? error.message : "Errore nel preview costi", "error")
+        setPreviewError(error instanceof Error ? error.message : "Errore nel preview costi")
       } finally {
         setIsPreviewLoading(false)
       }
@@ -454,6 +462,7 @@ export default function Preventivi() {
         </div>
       }
     >
+      <ConfigCheckBanner />
       <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
         <Card className="overflow-hidden">
           <CardHeader>
@@ -552,9 +561,9 @@ export default function Preventivi() {
                       <CheckCircle2 className="h-4 w-4" />
                       Conferma
                     </Button>
-                    <Button variant="soft" onClick={() => void handleConvert()} disabled={convertMutation.isPending}>
+                    <Button variant="soft" onClick={() => void handleConvert()} disabled={convertMutation.isPending || currentQuote?.stato !== "confermato"}>
                       <FileSpreadsheet className="h-4 w-4" />
-                      Converti
+                      Converti in Ordine
                     </Button>
                     <Button variant="ghost" onClick={() => deleteMutation.mutate(selectedId)} disabled={deleteMutation.isPending}>
                       <Trash2 className="h-4 w-4" />
@@ -677,8 +686,8 @@ export default function Preventivi() {
               </SectionCard>
 
               <SectionCard
-                title="Materiali multipli"
-                description="Ogni riga usa costo €/kg, scarto, moltiplicatore energetico e rischio materiale."
+                title="Materiali"
+                description="Griglia materiali con calcolo automatico peso totale e costo."
                 action={
                   <Button
                     variant="outline"
@@ -705,156 +714,97 @@ export default function Preventivi() {
                     }
                   >
                     <PackagePlus className="h-4 w-4" />
-                    Aggiungi materiale
+                    Aggiungi riga
                   </Button>
                 }
               >
-                <div className="space-y-4">
-                  {draft.materiali.map((materiale, index) => {
-                    const previewRow = preview?.materiali[index]
-                    return (
-                      <div key={index} className="rounded-2xl border p-4" style={{ borderColor: "var(--card-border)" }}>
-                        <div className="mb-4 flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>
-                              Riga materiale {index + 1}
-                            </p>
-                            {previewRow && (
-                              <p className="text-xs" style={{ color: "var(--muted-text)" }}>
-                                Totale calcolato: {previewRow.grammi_totali.toFixed(2)} g · {formatEur(previewRow.costo_totale)}
-                              </p>
-                            )}
-                          </div>
-                          {draft.materiali.length > 1 && (
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              disabled={readOnly}
-                              onClick={() =>
-                                updateDraft(current => ({
-                                  ...current,
-                                  materiali: current.materiali.filter((_, itemIndex) => itemIndex !== index),
-                                }))
-                              }
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                          <div className="space-y-1.5 xl:col-span-2">
-                            <Label>Bobina / materiale di magazzino</Label>
-                            <Select
-                              value={materiale.magazzino_id ? String(materiale.magazzino_id) : "manuale"}
-                              onValueChange={value => {
-                                if (value === "manuale") {
-                                  updateMaterial(index, { magazzino_id: null })
-                                  return
-                                }
-                                const selected = materialMap.get(Number(value))
-                                updateMaterial(index, {
-                                  magazzino_id: Number(value),
-                                  materiale_nome: selected?.materiale ?? materiale.materiale_nome,
-                                  marca: selected?.marca ?? materiale.marca,
-                                  colore: selected?.colore ?? materiale.colore,
-                                  costo_kg: selected?.costo_kg ?? materiale.costo_kg,
-                                })
-                              }}
-                              disabled={readOnly}
-                            >
-                              <SelectTrigger><SelectValue placeholder="Seleziona bobina" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="manuale">Riga manuale</SelectItem>
-                                {materials.map(item => (
-                                  <SelectItem key={item.id} value={String(item.id)}>
-                                    {item.marca} · {item.materiale} · {item.colore} · {formatEur(item.costo_kg)}/kg
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label>Materiale</Label>
-                            <Input
-                              value={materiale.materiale_nome}
-                              disabled={readOnly}
-                              onChange={event => updateMaterial(index, { materiale_nome: event.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label>Marca</Label>
-                            <Input
-                              value={materiale.marca}
-                              disabled={readOnly}
-                              onChange={event => updateMaterial(index, { marca: event.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label>Colore</Label>
-                            <Input
-                              value={materiale.colore}
-                              disabled={readOnly}
-                              onChange={event => updateMaterial(index, { colore: event.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label>Peso netto modello (g)</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={materiale.grammi_modello}
-                              disabled={readOnly}
-                              onChange={event => updateMaterial(index, { grammi_modello: toNumber(event.target.value) })}
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label>Scarto %</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.1"
-                              value={materiale.scarto_perc ?? ""}
-                              disabled={readOnly}
-                              onChange={event => updateMaterial(index, { scarto_perc: toNullableNumber(event.target.value) })}
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label>Costo €/kg</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={materiale.costo_kg ?? ""}
-                              disabled={readOnly}
-                              onChange={event => updateMaterial(index, { costo_kg: toNullableNumber(event.target.value) })}
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label>Moltiplicatore energia</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={materiale.energy_multiplier ?? ""}
-                              disabled={readOnly}
-                              onChange={event => updateMaterial(index, { energy_multiplier: toNullableNumber(event.target.value) })}
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label>Rischio materiale %</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.1"
-                              value={materiale.risk_perc ?? ""}
-                              disabled={readOnly}
-                              onChange={event => updateMaterial(index, { risk_perc: toNullableNumber(event.target.value) })}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="text-left text-xs border-b" style={{ color: "var(--muted-text)", borderColor: "var(--card-border)" }}>
+                        <th className="pb-2 pr-2 font-medium">Bobina</th>
+                        <th className="pb-2 px-2 font-medium">Materiale</th>
+                        <th className="pb-2 px-2 font-medium">Marca</th>
+                        <th className="pb-2 px-2 font-medium">Colore</th>
+                        <th className="pb-2 px-2 font-medium text-right">Peso (g)</th>
+                        <th className="pb-2 px-2 font-medium text-right">Scarto %</th>
+                        <th className="pb-2 px-2 font-medium text-right">Peso tot (g)</th>
+                        <th className="pb-2 px-2 font-medium text-right">€/kg</th>
+                        <th className="pb-2 px-2 font-medium text-right">Totale €</th>
+                        <th className="pb-2 pl-2 font-medium w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {draft.materiali.map((materiale, index) => {
+                        const previewRow = preview?.materiali[index]
+                        return (
+                          <tr key={index} className="border-b" style={{ borderColor: "var(--card-border)" }}>
+                            <td className="py-1.5 pr-2">
+                              <Select
+                                value={materiale.magazzino_id ? String(materiale.magazzino_id) : "manuale"}
+                                onValueChange={value => {
+                                  if (value === "manuale") {
+                                    updateMaterial(index, { magazzino_id: null })
+                                    return
+                                  }
+                                  const selected = materialMap.get(Number(value))
+                                  updateMaterial(index, {
+                                    magazzino_id: Number(value),
+                                    materiale_nome: selected?.materiale ?? materiale.materiale_nome,
+                                    marca: selected?.marca ?? materiale.marca,
+                                    colore: selected?.colore ?? materiale.colore,
+                                    costo_kg: selected?.costo_kg ?? materiale.costo_kg,
+                                  })
+                                }}
+                                disabled={readOnly}
+                              >
+                                <SelectTrigger className="h-8 text-xs min-w-[140px]"><SelectValue placeholder="Seleziona" /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="manuale">Manuale</SelectItem>
+                                  {materials.map(item => (
+                                    <SelectItem key={item.id} value={String(item.id)}>
+                                      {item.marca} · {item.materiale} · {item.colore}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td className="py-1.5 px-2">
+                              <Input className="h-8 text-xs" value={materiale.materiale_nome} disabled={readOnly} onChange={e => updateMaterial(index, { materiale_nome: e.target.value })} />
+                            </td>
+                            <td className="py-1.5 px-2">
+                              <Input className="h-8 text-xs" value={materiale.marca} disabled={readOnly} onChange={e => updateMaterial(index, { marca: e.target.value })} />
+                            </td>
+                            <td className="py-1.5 px-2">
+                              <Input className="h-8 text-xs" value={materiale.colore} disabled={readOnly} onChange={e => updateMaterial(index, { colore: e.target.value })} />
+                            </td>
+                            <td className="py-1.5 px-2">
+                              <Input className="h-8 text-xs text-right tabular-nums w-20" type="number" min="0" value={materiale.grammi_modello} disabled={readOnly} onChange={e => updateMaterial(index, { grammi_modello: toNumber(e.target.value) })} />
+                            </td>
+                            <td className="py-1.5 px-2">
+                              <Input className="h-8 text-xs text-right tabular-nums w-16" type="number" min="0" step="0.1" value={materiale.scarto_perc ?? ""} disabled={readOnly} onChange={e => updateMaterial(index, { scarto_perc: toNullableNumber(e.target.value) })} />
+                            </td>
+                            <td className="py-1.5 px-2 text-right tabular-nums text-xs font-medium" style={{ color: "var(--muted-text)" }}>
+                              {previewRow ? previewRow.grammi_totali.toFixed(1) : "—"}
+                            </td>
+                            <td className="py-1.5 px-2">
+                              <Input className="h-8 text-xs text-right tabular-nums w-20" type="number" min="0" step="0.01" value={materiale.costo_kg ?? ""} disabled={readOnly} onChange={e => updateMaterial(index, { costo_kg: toNullableNumber(e.target.value) })} />
+                            </td>
+                            <td className="py-1.5 px-2 text-right tabular-nums text-xs font-semibold">
+                              {previewRow ? formatEur(previewRow.costo_totale) : "—"}
+                            </td>
+                            <td className="py-1.5 pl-2">
+                              {draft.materiali.length > 1 && (
+                                <Button variant="ghost" size="icon-sm" disabled={readOnly} onClick={() => updateDraft(c => ({ ...c, materiali: c.materiali.filter((_, i) => i !== index) }))}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </SectionCard>
 
@@ -909,7 +859,7 @@ export default function Preventivi() {
 
               <SectionCard
                 title="Post-produzione"
-                description="Righe multiple: usa minuti di manodopera oppure costo diretto."
+                description="Minuti di manodopera oppure costo diretto per riga."
                 action={
                   <Button
                     variant="outline"
@@ -927,32 +877,49 @@ export default function Preventivi() {
                   </Button>
                 }
               >
-                <div className="space-y-3">
-                  {draft.post_produzione.length === 0 && (
-                    <p className="text-sm" style={{ color: "var(--muted-text)" }}>Nessuna lavorazione post-produzione inserita.</p>
-                  )}
-                  {draft.post_produzione.map((item, index) => (
-                    <div key={index} className="grid gap-3 rounded-2xl border p-4 md:grid-cols-[minmax(0,1.4fr)_150px_150px_44px]" style={{ borderColor: "var(--card-border)" }}>
-                      <div className="space-y-1.5">
-                        <Label>Descrizione</Label>
-                        <Input value={item.descrizione} disabled={readOnly} onChange={event => updatePost(index, { descrizione: event.target.value })} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Minuti</Label>
-                        <Input type="number" min="0" value={item.minuti ?? ""} disabled={readOnly} onChange={event => updatePost(index, { minuti: toNullableNumber(event.target.value) })} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Costo diretto</Label>
-                        <Input type="number" min="0" step="0.01" value={item.costo_manual ?? ""} disabled={readOnly} onChange={event => updatePost(index, { costo_manual: toNullableNumber(event.target.value) })} />
-                      </div>
-                      <div className="flex items-end">
-                        <Button variant="ghost" size="icon" disabled={readOnly} onClick={() => updateDraft(current => ({ ...current, post_produzione: current.post_produzione.filter((_, rowIndex) => rowIndex !== index) }))}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {draft.post_produzione.length === 0 ? (
+                  <p className="text-sm" style={{ color: "var(--muted-text)" }}>Nessuna lavorazione post-produzione inserita.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="text-left text-xs border-b" style={{ color: "var(--muted-text)", borderColor: "var(--card-border)" }}>
+                          <th className="pb-2 pr-2 font-medium">Descrizione</th>
+                          <th className="pb-2 px-2 font-medium text-right">Minuti</th>
+                          <th className="pb-2 px-2 font-medium text-right">Costo diretto (€)</th>
+                          <th className="pb-2 px-2 font-medium text-right">Totale €</th>
+                          <th className="pb-2 pl-2 font-medium w-8"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {draft.post_produzione.map((item, index) => {
+                          const previewRow = preview?.post_produzione[index]
+                          return (
+                            <tr key={index} className="border-b" style={{ borderColor: "var(--card-border)" }}>
+                              <td className="py-1.5 pr-2">
+                                <Input className="h-8 text-xs" value={item.descrizione} disabled={readOnly} onChange={e => updatePost(index, { descrizione: e.target.value })} />
+                              </td>
+                              <td className="py-1.5 px-2">
+                                <Input className="h-8 text-xs text-right tabular-nums w-20" type="number" min="0" value={item.minuti ?? ""} disabled={readOnly} onChange={e => updatePost(index, { minuti: toNullableNumber(e.target.value) })} />
+                              </td>
+                              <td className="py-1.5 px-2">
+                                <Input className="h-8 text-xs text-right tabular-nums w-24" type="number" min="0" step="0.01" value={item.costo_manual ?? ""} disabled={readOnly} onChange={e => updatePost(index, { costo_manual: toNullableNumber(e.target.value) })} />
+                              </td>
+                              <td className="py-1.5 px-2 text-right tabular-nums text-xs font-semibold">
+                                {previewRow ? formatEur(previewRow.costo_totale) : "—"}
+                              </td>
+                              <td className="py-1.5 pl-2">
+                                <Button variant="ghost" size="icon-sm" disabled={readOnly} onClick={() => updateDraft(c => ({ ...c, post_produzione: c.post_produzione.filter((_, i) => i !== index) }))}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </SectionCard>
 
               <SectionCard
@@ -971,36 +938,53 @@ export default function Preventivi() {
                     }
                   >
                     <Plus className="h-4 w-4" />
-                    Aggiungi componente
+                    Aggiungi riga
                   </Button>
                 }
               >
-                <div className="space-y-3">
-                  {draft.componenti_extra.length === 0 && (
-                    <p className="text-sm" style={{ color: "var(--muted-text)" }}>Nessun componente extra inserito.</p>
-                  )}
-                  {draft.componenti_extra.map((item, index) => (
-                    <div key={index} className="grid gap-3 rounded-2xl border p-4 md:grid-cols-[minmax(0,1.4fr)_100px_140px_44px]" style={{ borderColor: "var(--card-border)" }}>
-                      <div className="space-y-1.5">
-                        <Label>Descrizione</Label>
-                        <Input value={item.descrizione} disabled={readOnly} onChange={event => updateComponent(index, { descrizione: event.target.value })} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Quantità</Label>
-                        <Input type="number" min="0" step="1" value={item.quantita} disabled={readOnly} onChange={event => updateComponent(index, { quantita: toNumber(event.target.value) })} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Costo unitario</Label>
-                        <Input type="number" min="0" step="0.01" value={item.costo_unitario} disabled={readOnly} onChange={event => updateComponent(index, { costo_unitario: toNumber(event.target.value) })} />
-                      </div>
-                      <div className="flex items-end">
-                        <Button variant="ghost" size="icon" disabled={readOnly} onClick={() => updateDraft(current => ({ ...current, componenti_extra: current.componenti_extra.filter((_, rowIndex) => rowIndex !== index) }))}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {draft.componenti_extra.length === 0 ? (
+                  <p className="text-sm" style={{ color: "var(--muted-text)" }}>Nessun componente extra inserito.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="text-left text-xs border-b" style={{ color: "var(--muted-text)", borderColor: "var(--card-border)" }}>
+                          <th className="pb-2 pr-2 font-medium">Descrizione</th>
+                          <th className="pb-2 px-2 font-medium text-right">Quantità</th>
+                          <th className="pb-2 px-2 font-medium text-right">€/unità</th>
+                          <th className="pb-2 px-2 font-medium text-right">Totale €</th>
+                          <th className="pb-2 pl-2 font-medium w-8"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {draft.componenti_extra.map((item, index) => {
+                          const previewRow = preview?.componenti_extra[index]
+                          return (
+                            <tr key={index} className="border-b" style={{ borderColor: "var(--card-border)" }}>
+                              <td className="py-1.5 pr-2">
+                                <Input className="h-8 text-xs" value={item.descrizione} disabled={readOnly} onChange={e => updateComponent(index, { descrizione: e.target.value })} />
+                              </td>
+                              <td className="py-1.5 px-2">
+                                <Input className="h-8 text-xs text-right tabular-nums w-16" type="number" min="0" step="1" value={item.quantita} disabled={readOnly} onChange={e => updateComponent(index, { quantita: toNumber(e.target.value) })} />
+                              </td>
+                              <td className="py-1.5 px-2">
+                                <Input className="h-8 text-xs text-right tabular-nums w-24" type="number" min="0" step="0.01" value={item.costo_unitario} disabled={readOnly} onChange={e => updateComponent(index, { costo_unitario: toNumber(e.target.value) })} />
+                              </td>
+                              <td className="py-1.5 px-2 text-right tabular-nums text-xs font-semibold">
+                                {previewRow ? formatEur(previewRow.costo_totale) : formatEur(item.quantita * item.costo_unitario)}
+                              </td>
+                              <td className="py-1.5 pl-2">
+                                <Button variant="ghost" size="icon-sm" disabled={readOnly} onClick={() => updateDraft(c => ({ ...c, componenti_extra: c.componenti_extra.filter((_, i) => i !== index) }))}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </SectionCard>
 
               <SectionCard title="Packing, spedizione, rischio e margine" description="Campi commerciali finali e override difendibili sul preventivo.">
@@ -1025,11 +1009,30 @@ export default function Preventivi() {
               </SectionCard>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-6 sticky top-4 self-start">
               <SectionCard title="Riepilogo finale" description="Lato cliente: prezzo finale. Lato interno: costo pieno, utile lordo e breakdown completo.">
                 {isPreviewLoading && (
                   <div className="rounded-xl border px-4 py-3 text-sm" style={{ borderColor: "var(--card-border)", color: "var(--muted-text)" }}>
                     Aggiornamento preview in corso...
+                  </div>
+                )}
+
+                {previewError && (
+                  <div className="rounded-2xl border px-4 py-3 text-sm" style={{ borderColor: "color-mix(in srgb, var(--error, #ef4444) 35%, transparent)", background: "color-mix(in srgb, var(--error, #ef4444) 8%, transparent)", color: "var(--error, #ef4444)" }}>
+                    <div className="flex items-start gap-2">
+                      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                      <div className="min-w-0">
+                        <p>{previewError}</p>
+                        <button
+                          type="button"
+                          className="mt-2 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+                          style={{ background: "var(--error, #ef4444)", color: "#fff" }}
+                          onClick={() => navigate("/impostazioni#filamenti")}
+                        >
+                          Vai a Impostazioni
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
 

@@ -96,6 +96,8 @@ def _migrate(cursor):
         ("stampanti", "risk_perc_base",               "REAL DEFAULT 0.0"),
         # Maintenance templates — costo standard per intervento
         ("maintenance_templates", "costo_standard_intervento", "REAL DEFAULT 0"),
+        # Preventivi — FK ordine
+        ("preventivi", "ordine_id", "INTEGER DEFAULT NULL"),
         # Log stampe — snapshot storico costi
         ("log_stampe", "snapshot_costo_materiale",    "REAL DEFAULT NULL"),
         ("log_stampe", "snapshot_costo_energia",      "REAL DEFAULT NULL"),
@@ -105,6 +107,8 @@ def _migrate(cursor):
         ("log_stampe", "snapshot_quota_allocazioni",  "REAL DEFAULT NULL"),
         ("log_stampe", "snapshot_costo_totale_log",   "REAL DEFAULT NULL"),
         ("log_stampe", "snapshot_data_calcolo",       "TEXT DEFAULT NULL"),
+        # Material configs — costo €/kg per configurazione preventivi
+        ("material_configs", "costo_kg",               "REAL DEFAULT NULL"),
     ]
     for table, column, col_def in migrations:
         try:
@@ -597,6 +601,100 @@ def init_db():
                 costo_unitario REAL DEFAULT 0.0,
                 costo_totale REAL DEFAULT 0.0,
                 FOREIGN KEY (preventivo_id) REFERENCES preventivi(id) ON DELETE CASCADE
+            )
+        ''')
+
+        # ── Tabella Ordini (ERP workflow) ─────────────────────────────────────
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS ordini (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                numero_ordine TEXT NOT NULL UNIQUE,
+                preventivo_id INTEGER DEFAULT NULL,
+                cliente_id INTEGER DEFAULT NULL,
+                cliente_nome_snapshot TEXT DEFAULT '',
+                progetto_nome TEXT NOT NULL,
+                stato TEXT NOT NULL DEFAULT 'nuovo',
+                prezzo_finale REAL DEFAULT 0.0,
+                costo_pieno REAL DEFAULT 0.0,
+                utile_lordo REAL DEFAULT 0.0,
+                margine_lordo_perc REAL DEFAULT 0.0,
+                quantita INTEGER DEFAULT 1,
+                snapshot_preventivo_json TEXT DEFAULT '{}',
+                note TEXT DEFAULT '',
+                data_creazione TEXT,
+                data_completamento TEXT DEFAULT NULL,
+                data_spedizione TEXT DEFAULT NULL,
+                data_chiusura TEXT DEFAULT NULL,
+                created_at TEXT,
+                updated_at TEXT,
+                FOREIGN KEY (preventivo_id) REFERENCES preventivi(id),
+                FOREIGN KEY (cliente_id) REFERENCES clienti(id)
+            )
+        ''')
+
+        # ── Tabella File Ordine (3MF uploads) ────────────────────────────────
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS ordine_file (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ordine_id INTEGER NOT NULL,
+                file_path TEXT NOT NULL,
+                file_name TEXT NOT NULL,
+                file_size INTEGER DEFAULT 0,
+                stampante_id INTEGER DEFAULT NULL,
+                materiale_magazzino_id INTEGER DEFAULT NULL,
+                tempo_stimato_minuti REAL DEFAULT 0.0,
+                quantita INTEGER DEFAULT 1,
+                note TEXT DEFAULT '',
+                created_at TEXT,
+                FOREIGN KEY (ordine_id) REFERENCES ordini(id) ON DELETE CASCADE,
+                FOREIGN KEY (stampante_id) REFERENCES stampanti(id)
+            )
+        ''')
+
+        # ── Tabella Job / Lavorazioni ─────────────────────────────────────────
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS job_lavorazioni (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                numero_job TEXT NOT NULL UNIQUE,
+                ordine_id INTEGER NOT NULL,
+                ordine_file_id INTEGER NOT NULL,
+                stampante_id INTEGER NOT NULL,
+                materiale_magazzino_id INTEGER DEFAULT NULL,
+                quantita INTEGER DEFAULT 1,
+                tempo_stimato_minuti REAL DEFAULT 0.0,
+                tempo_effettivo_minuti REAL DEFAULT NULL,
+                grammi_stimati REAL DEFAULT 0.0,
+                grammi_effettivi REAL DEFAULT NULL,
+                stato TEXT NOT NULL DEFAULT 'pianificato',
+                data_inizio TEXT DEFAULT NULL,
+                data_fine TEXT DEFAULT NULL,
+                note TEXT DEFAULT '',
+                created_at TEXT,
+                updated_at TEXT,
+                FOREIGN KEY (ordine_id) REFERENCES ordini(id) ON DELETE CASCADE,
+                FOREIGN KEY (ordine_file_id) REFERENCES ordine_file(id) ON DELETE CASCADE,
+                FOREIGN KEY (stampante_id) REFERENCES stampanti(id)
+            )
+        ''')
+
+        # ── Tabella Spedizioni ────────────────────────────────────────────────
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS spedizioni (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ordine_id INTEGER NOT NULL,
+                corriere TEXT DEFAULT '',
+                codice_tracking TEXT DEFAULT '',
+                costo_spedizione REAL DEFAULT 0.0,
+                costo_packing REAL DEFAULT 0.0,
+                peso_kg REAL DEFAULT 0.0,
+                stato TEXT NOT NULL DEFAULT 'preparazione',
+                data_spedizione TEXT DEFAULT NULL,
+                data_consegna TEXT DEFAULT NULL,
+                indirizzo_destinazione TEXT DEFAULT '',
+                note TEXT DEFAULT '',
+                created_at TEXT,
+                updated_at TEXT,
+                FOREIGN KEY (ordine_id) REFERENCES ordini(id) ON DELETE CASCADE
             )
         ''')
 

@@ -77,6 +77,12 @@ def _resolve_material_rows(conn, quote: dict[str, Any]) -> list[dict[str, Any]]:
     resolved: list[dict[str, Any]] = []
     for row in quote.get("materiali", []):
         magazzino_id = row.get("magazzino_id")
+
+        # Salta righe vuote/template (nessun materiale e 0 grammi)
+        materiale_raw = row.get("materiale_nome") or ""
+        if not materiale_raw.strip() and magazzino_id is None and float(row.get("grammi_modello") or 0) == 0:
+            continue
+
         stock_row = None
         if magazzino_id is not None:
             stock_row = conn.execute(
@@ -89,13 +95,25 @@ def _resolve_material_rows(conn, quote: dict[str, Any]) -> list[dict[str, Any]]:
         materiale_nome = row.get("materiale_nome") or (stock_row["materiale"] if stock_row else "")
         marca = row.get("marca") or (stock_row["marca"] if stock_row else "")
         colore = row.get("colore") or (stock_row["colore"] if stock_row else "")
+
+        # Carica config materiale (serve sia per costo_kg che per scarto/energy/risk)
+        config = _get_material_config(conn, materiale_nome, marca) or {}
+
+        # Risoluzione costo_kg: riga manuale → magazzino → config materiale → errore
         costo_kg = row.get("costo_kg")
         if costo_kg is None and stock_row is not None:
             costo_kg = stock_row["costo_kg"]
         if costo_kg is None:
-            raise ValueError("Ogni riga materiale deve avere un costo €/kg valido.")
+            cfg_costo = config.get("costo_kg")
+            if cfg_costo is not None and float(cfg_costo) > 0:
+                costo_kg = float(cfg_costo)
+        if costo_kg is None or float(costo_kg) <= 0:
+            mat_label = f"{materiale_nome or '?'} / {marca or 'generale'}"
+            raise ValueError(
+                f"Manca il costo €/kg nella configurazione materiale {mat_label}. "
+                "Vai in Impostazioni e completa il campo."
+            )
 
-        config = _get_material_config(conn, materiale_nome, marca) or {}
         scarto_perc = row.get("scarto_perc")
         if scarto_perc is None:
             scarto_perc = config.get("scarto_predefinito_perc", 0.0)
@@ -763,13 +781,17 @@ def confirm_quote(preventivo_id: int) -> dict[str, Any]:
 
 
 def convert_quote(preventivo_id: int) -> dict[str, Any]:
+    from backend.services import order_service
+
     with db.get_db_connection() as conn:
         payload = _fetch_quote_payload(conn, preventivo_id)
         if payload is None:
             raise LookupError("Preventivo non trovato.")
 
         if payload["stato"] == "convertito":
-            return _format_quote_response(conn, preventivo_id)
+            result = _format_quote_response(conn, preventivo_id)
+            result["ordine_id"] = payload.get("ordine_id")
+            return result
 
         if payload["stato"] == "confermato":
             conn.execute(
@@ -777,16 +799,22 @@ def convert_quote(preventivo_id: int) -> dict[str, Any]:
                 (_now_iso(), preventivo_id),
             )
             conn.commit()
-            return _format_quote_response(conn, preventivo_id)
+            ordine = order_service.create_order_from_quote(preventivo_id)
+            result = _format_quote_response(conn, preventivo_id)
+            result["ordine_id"] = ordine["id"]
+            return result
 
-    confirmed = confirm_quote(preventivo_id)
+    confirm_quote(preventivo_id)
     with db.get_db_connection() as conn:
         conn.execute(
             "UPDATE preventivi SET stato = 'convertito', updated_at = ? WHERE id = ?",
             (_now_iso(), preventivo_id),
         )
         conn.commit()
-        return _format_quote_response(conn, preventivo_id)
+        ordine = order_service.create_order_from_quote(preventivo_id)
+        result = _format_quote_response(conn, preventivo_id)
+        result["ordine_id"] = ordine["id"]
+        return result
 
 
 def delete_quote(preventivo_id: int) -> None:
@@ -810,12 +838,13 @@ def upsert_material_config(data: dict[str, Any]) -> dict[str, Any]:
     with db.get_db_connection() as conn:
         conn.execute(
             """INSERT INTO material_configs
-               (materiale, marca, scarto_predefinito_perc, energy_multiplier, risk_perc_base, note, updated_at)
-               VALUES (?,?,?,?,?,?,?)
+               (materiale, marca, scarto_predefinito_perc, energy_multiplier, risk_perc_base, costo_kg, note, updated_at)
+               VALUES (?,?,?,?,?,?,?,?)
                ON CONFLICT(materiale, marca) DO UPDATE SET
                  scarto_predefinito_perc = excluded.scarto_predefinito_perc,
                  energy_multiplier = excluded.energy_multiplier,
                  risk_perc_base = excluded.risk_perc_base,
+                 costo_kg = excluded.costo_kg,
                  note = excluded.note,
                  updated_at = excluded.updated_at""",
             (
@@ -824,6 +853,7 @@ def upsert_material_config(data: dict[str, Any]) -> dict[str, Any]:
                 data.get("scarto_predefinito_perc", 0.0),
                 data.get("energy_multiplier", 1.0),
                 data.get("risk_perc_base", 0.0),
+                data.get("costo_kg"),
                 data.get("note", ""),
                 _now_iso(),
             ),

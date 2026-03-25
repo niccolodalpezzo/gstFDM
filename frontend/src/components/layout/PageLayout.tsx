@@ -29,7 +29,7 @@ export function PageLayout({ title, description, actions, children, className }:
     >
       <motion.div variants={itemVariants} className="page-layout__header">
         <div className="page-layout__heading">
-          <div className="page-layout__eyebrow">ERP Workspace</div>
+          <div className="page-layout__eyebrow">Gestionale FDM</div>
           <h1 className="page-layout__title">
             {title}
           </h1>

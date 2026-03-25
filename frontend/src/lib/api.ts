@@ -20,7 +20,12 @@ import type {
   MaterialConfig, MaterialConfigCreate,
   CostoStraordinarioStruttura, CostoStraordinarioStrutturaCreate,
   Preventivo, PreventivoInput, PreventivoListItem, PreventivoPreview,
+  Ordine, OrdineListItem, OrdineFile, OrdineFileUpdate,
+  JobLavorazione, JobCompleteRequest,
+  Spedizione, SpedizioneCreate,
+  ConfigCheck,
 } from "@/types"
+import { translateApiError } from "@/lib/errorTranslation"
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000"
 
@@ -31,7 +36,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`${res.status}: ${text}`)
+    const raw = new Error(`${res.status}: ${text}`)
+    throw new Error(translateApiError(raw))
   }
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
@@ -285,5 +291,88 @@ export const api = {
       delete: (id: number) =>
         request<void>(`/api/preventivi/costi-struttura/${id}`, { method: "DELETE" }),
     },
+  },
+
+  // ─── ORDINI ──────────────────────────────────────────────────────────────
+  ordini: {
+    list: (params?: { stato?: string; cliente_id?: number }) => {
+      const qs = new URLSearchParams()
+      if (params?.stato) qs.set("stato", params.stato)
+      if (params?.cliente_id) qs.set("cliente_id", String(params.cliente_id))
+      const q = qs.toString() ? `?${qs.toString()}` : ""
+      return request<OrdineListItem[]>(`/api/ordini${q}`)
+    },
+    get: (id: number) => request<Ordine>(`/api/ordini/${id}`),
+    update: (id: number, body: { note?: string }) =>
+      request<Ordine>(`/api/ordini/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    delete: (id: number) =>
+      request<void>(`/api/ordini/${id}`, { method: "DELETE" }),
+    transition: (id: number, stato: string) =>
+      request<Ordine>(`/api/ordini/${id}/transition`, { method: "POST", body: JSON.stringify({ stato }) }),
+    uploadFile: async (ordineId: number, file: File, metadata?: Partial<OrdineFileUpdate>): Promise<Ordine> => {
+      const fd = new FormData()
+      fd.append("file", file)
+      if (metadata?.stampante_id != null) fd.append("stampante_id", String(metadata.stampante_id))
+      if (metadata?.materiale_magazzino_id != null) fd.append("materiale_magazzino_id", String(metadata.materiale_magazzino_id))
+      if (metadata?.tempo_stimato_minuti != null) fd.append("tempo_stimato_minuti", String(metadata.tempo_stimato_minuti))
+      if (metadata?.quantita != null) fd.append("quantita", String(metadata.quantita))
+      if (metadata?.note) fd.append("note", metadata.note)
+      const res = await fetch(`${BASE}/api/ordini/${ordineId}/files`, { method: "POST", body: fd })
+      if (!res.ok) { const t = await res.text(); throw new Error(translateApiError(new Error(`${res.status}: ${t}`))) }
+      return res.json()
+    },
+    updateFile: (ordineId: number, fileId: number, body: OrdineFileUpdate) =>
+      request<Ordine>(`/api/ordini/${ordineId}/files/${fileId}`, { method: "PUT", body: JSON.stringify(body) }),
+    deleteFile: (ordineId: number, fileId: number) =>
+      request<void>(`/api/ordini/${ordineId}/files/${fileId}`, { method: "DELETE" }),
+    downloadFileUrl: (ordineId: number, fileId: number) =>
+      `${BASE}/api/ordini/${ordineId}/files/${fileId}/download`,
+    generateJobs: (ordineId: number, fileId: number) =>
+      request<JobLavorazione[]>(`/api/ordini/${ordineId}/files/${fileId}/generate-jobs`, { method: "POST" }),
+  },
+
+  // ─── JOB / LAVORAZIONI ──────────────────────────────────────────────────
+  jobs: {
+    list: (params?: { ordine_id?: number; stampante_id?: number; stato?: string }) => {
+      const qs = new URLSearchParams()
+      if (params?.ordine_id) qs.set("ordine_id", String(params.ordine_id))
+      if (params?.stampante_id) qs.set("stampante_id", String(params.stampante_id))
+      if (params?.stato) qs.set("stato", params.stato)
+      const q = qs.toString() ? `?${qs.toString()}` : ""
+      return request<JobLavorazione[]>(`/api/jobs${q}`)
+    },
+    get: (id: number) => request<JobLavorazione>(`/api/jobs/${id}`),
+    update: (id: number, body: { note?: string }) =>
+      request<JobLavorazione>(`/api/jobs/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    start: (id: number) =>
+      request<JobLavorazione>(`/api/jobs/${id}/start`, { method: "POST" }),
+    complete: (id: number, body: JobCompleteRequest) =>
+      request<JobLavorazione>(`/api/jobs/${id}/complete`, { method: "POST", body: JSON.stringify(body) }),
+    cancel: (id: number) =>
+      request<JobLavorazione>(`/api/jobs/${id}/cancel`, { method: "POST" }),
+  },
+
+  // ─── SPEDIZIONI ─────────────────────────────────────────────────────────
+  spedizioni: {
+    list: (ordine_id?: number) => {
+      const qs = ordine_id ? `?ordine_id=${ordine_id}` : ""
+      return request<Spedizione[]>(`/api/spedizioni${qs}`)
+    },
+    get: (id: number) => request<Spedizione>(`/api/spedizioni/${id}`),
+    create: (body: SpedizioneCreate) =>
+      request<Spedizione>("/api/spedizioni", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: number, body: Partial<SpedizioneCreate> & { codice_tracking?: string }) =>
+      request<Spedizione>(`/api/spedizioni/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    ship: (id: number, body: { codice_tracking?: string; corriere?: string }) =>
+      request<Spedizione>(`/api/spedizioni/${id}/ship`, { method: "POST", body: JSON.stringify(body) }),
+    deliver: (id: number) =>
+      request<Spedizione>(`/api/spedizioni/${id}/deliver`, { method: "POST" }),
+    delete: (id: number) =>
+      request<void>(`/api/spedizioni/${id}`, { method: "DELETE" }),
+  },
+
+  // ─── CONFIG CHECK ───────────────────────────────────────────────────────
+  configCheck: {
+    check: () => request<ConfigCheck>("/api/config-check"),
   },
 }

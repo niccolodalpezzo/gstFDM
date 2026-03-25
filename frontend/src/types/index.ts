@@ -557,6 +557,7 @@ export interface MaterialConfig {
   scarto_predefinito_perc: number
   energy_multiplier: number
   risk_perc_base: number
+  costo_kg: number | null
   note: string
   created_at: string | null
   updated_at: string | null
@@ -720,6 +721,7 @@ export interface Preventivo extends PreventivoListItem {
   override_rischio_perc: number | null
   note: string
   snapshot_json: string
+  ordine_id: number | null
   materiali: PreventivoMateriale[]
   post_produzione: PreventivoPostProduzione[]
   componenti_extra: PreventivoComponenteExtra[]
@@ -731,4 +733,145 @@ export interface PreventivoPreview {
   materiali: PreventivoMateriale[]
   post_produzione: PreventivoPostProduzione[]
   componenti_extra: PreventivoComponenteExtra[]
+}
+
+// ─── ORDINI (ERP) ────────────────────────────────────────────────────────────
+
+export const ORDINE_STATI = ["nuovo", "in_lavorazione", "completato", "spedito", "chiuso"] as const
+export type OrdineStato = (typeof ORDINE_STATI)[number]
+
+export interface OrdineFile {
+  id: number
+  ordine_id: number
+  file_name: string
+  file_size: number
+  stampante_id: number | null
+  stampante_nome: string | null
+  materiale_magazzino_id: number | null
+  materiale_nome: string | null
+  tempo_stimato_minuti: number
+  quantita: number
+  note: string
+  jobs_count: number
+  created_at: string | null
+}
+
+export interface OrdineFileUpdate {
+  stampante_id: number | null
+  materiale_magazzino_id: number | null
+  tempo_stimato_minuti: number
+  quantita: number
+  note: string
+}
+
+export interface OrdineListItem {
+  id: number
+  numero_ordine: string
+  preventivo_id: number | null
+  cliente_id: number | null
+  cliente_nome_snapshot: string
+  progetto_nome: string
+  stato: OrdineStato
+  prezzo_finale: number
+  quantita: number
+  n_files: number
+  n_jobs: number
+  n_jobs_completati: number
+  data_creazione: string | null
+  updated_at: string | null
+}
+
+export interface Ordine extends OrdineListItem {
+  costo_pieno: number
+  utile_lordo: number
+  margine_lordo_perc: number
+  snapshot_preventivo_json: string
+  note: string
+  data_completamento: string | null
+  data_spedizione: string | null
+  data_chiusura: string | null
+  files: OrdineFile[]
+  jobs: JobLavorazione[]
+  spedizioni: Spedizione[]
+}
+
+// ─── JOB / LAVORAZIONI ───────────────────────────────────────────────────────
+
+export const JOB_STATI = ["pianificato", "in_corso", "completato", "annullato"] as const
+export type JobStato = (typeof JOB_STATI)[number]
+
+export interface JobLavorazione {
+  id: number
+  numero_job: string
+  ordine_id: number
+  ordine_file_id: number
+  file_name: string | null
+  stampante_id: number
+  stampante_nome: string | null
+  materiale_magazzino_id: number | null
+  materiale_nome: string | null
+  quantita: number
+  tempo_stimato_minuti: number
+  tempo_effettivo_minuti: number | null
+  grammi_stimati: number
+  grammi_effettivi: number | null
+  stato: JobStato
+  data_inizio: string | null
+  data_fine: string | null
+  note: string
+  ordine_numero: string | null
+  created_at: string | null
+}
+
+export interface JobCompleteRequest {
+  tempo_effettivo_minuti: number
+  grammi_effettivi: number
+  note: string
+}
+
+// ─── SPEDIZIONI ──────────────────────────────────────────────────────────────
+
+export const SPEDIZIONE_STATI = ["preparazione", "spedito", "consegnato", "reso"] as const
+export type SpedizioneStato = (typeof SPEDIZIONE_STATI)[number]
+
+export interface Spedizione {
+  id: number
+  ordine_id: number
+  ordine_numero: string | null
+  cliente_nome: string | null
+  corriere: string
+  codice_tracking: string
+  costo_spedizione: number
+  costo_packing: number
+  peso_kg: number
+  stato: SpedizioneStato
+  data_spedizione: string | null
+  data_consegna: string | null
+  indirizzo_destinazione: string
+  note: string
+  created_at: string | null
+}
+
+export interface SpedizioneCreate {
+  ordine_id: number
+  corriere: string
+  costo_spedizione: number
+  costo_packing: number
+  peso_kg: number
+  indirizzo_destinazione: string
+  note: string
+}
+
+// ─── CONFIG CHECK ────────────────────────────────────────────────────────────
+
+export interface ConfigCheckItem {
+  key: string
+  label: string
+  ok: boolean
+  value?: string
+}
+
+export interface ConfigCheck {
+  ready: boolean
+  checks: ConfigCheckItem[]
 }

@@ -448,6 +448,7 @@ class MaterialConfig(BaseModel):
     scarto_predefinito_perc: float = 0.0
     energy_multiplier: float = 1.0
     risk_perc_base: float = 0.0
+    costo_kg: Optional[float] = None
     note: str = ""
 
 

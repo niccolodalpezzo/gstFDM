@@ -24,6 +24,10 @@ const Pianificazione   = lazy(() => import("@/pages/Pianificazione"))
 const Manutenzioni     = lazy(() => import("@/pages/Manutenzioni"))
 const Azienda          = lazy(() => import("@/pages/Azienda"))
 const Preventivi       = lazy(() => import("@/pages/Preventivi"))
+const Ordini           = lazy(() => import("@/pages/Ordini"))
+const JobLavorazioni   = lazy(() => import("@/pages/JobLavorazioni"))
+const Spedizioni       = lazy(() => import("@/pages/Spedizioni"))
+const StoricoOrdini    = lazy(() => import("@/pages/StoricoOrdini"))
 
 // ─── Page skeleton loader ─────────────────────────────────────────────────────
 function PageLoader() {
@@ -104,13 +108,15 @@ function AnimatedRoutes() {
         <Suspense fallback={<PageLoader />}>
           <Routes location={location}>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/commerciale" element={<Navigate to="/produzione/ordini" replace />} />
-            <Route path="/produzione" element={<Navigate to="/produzione/ordini" replace />} />
-            <Route path="/produzione/ordini" element={<Progetti />} />
-            <Route path="/produzione/job" element={<ComingSoon />} />
-            <Route path="/produzione/spedizioni" element={<ComingSoon />} />
+            <Route path="/commerciale" element={<Navigate to="/produzione/preventivi" replace />} />
+            <Route path="/produzione" element={<Navigate to="/produzione/preventivi" replace />} />
+            <Route path="/produzione/preventivi" element={<Preventivi />} />
+            <Route path="/produzione/ordini" element={<Ordini />} />
+            <Route path="/produzione/job" element={<JobLavorazioni />} />
+            <Route path="/produzione/spedizioni" element={<Spedizioni />} />
+            <Route path="/produzione/storico" element={<StoricoOrdini />} />
             <Route path="/print-log" element={<PrintLog />} />
-            <Route path="/produzione/storico" element={<PrintLog />} />
+            <Route path="/produzione/progetti" element={<Progetti />} />
             <Route path="/produzione/pianificazione" element={<Pianificazione />} />
             <Route path="/progetti" element={<Navigate to="/produzione/ordini" replace />} />
             <Route path="/magazzino" element={<Navigate to="/magazzino/filamenti" replace />} />
@@ -128,7 +134,7 @@ function AnimatedRoutes() {
             <Route path="/stampanti/elenco" element={<Stampanti />} />
             <Route path="/stampanti/manutenzioni" element={<Manutenzioni />} />
             <Route path="/amministrazione" element={<Navigate to="/amministrazione/clienti" replace />} />
-            <Route path="/amministrazione/preventivi" element={<Preventivi />} />
+            <Route path="/amministrazione/preventivi" element={<Navigate to="/produzione/preventivi" replace />} />
             <Route path="/amministrazione/clienti" element={<Clienti />} />
             <Route path="/amministrazione/fornitori" element={<Fornitori />} />
             <Route path="/amministrazione/azienda" element={<Azienda />} />
